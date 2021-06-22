@@ -1,0 +1,20 @@
+import com.rameses.annotations.*;
+
+class MarketCashReceiptInterceptor {
+	
+	@Service(value="MarketPaymentService", connection="local-market-server") 
+	def pmtSvc; 
+
+	@After( pattern="CashReceiptService.post", eval="#{args[0]?.collectiontype?.handler == 'market'}")
+	public void afterPostPayment( evt ) {
+		def result = evt.args[0]; 
+		pmtSvc.postPayment( result );  
+	}
+
+
+	@After( pattern="CashReceiptVoidService.post", eval="#{args[0]?.receipt?.collectiontype?.handler == 'market'}")
+	public void afterVoidPayment( evt ) {
+		def result = evt.args[0]; 
+		pmtSvc.voidPayment( result );  
+	}
+}

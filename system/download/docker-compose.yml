@@ -52,3 +52,4 @@ services:
       - ../../_custom/module-client:/apps/server/public/resources/downloads/modules/custom
 
       - ../../appserver/epayment/module-client:/apps/server/public/resources/downloads/modules/epayment
+      - ../../appserver/market/client:/apps/server/public/resources/downloads/modules/market

@@ -1,0 +1,23 @@
+<schema  adapter="market">
+	<element tablename="market_otherfee">
+		<field name="objid" primary="true" prefix="MKFEE"/>
+		<field name="acctid" required="true"/>
+
+		<field name="year" caption="Year" required="true"/>
+		<field name="month" caption="Month" required="true"/>
+
+		<field name="fromdate" type="date"/>
+		<field name="todate" type="date"/>
+		<field name="amount" required="true" type="decimal" caption="Amount" defaultValue="0"/>
+		<field name="amtpaid" required="true" type="decimal" caption="Amt Paid" defaultValue="0"/>
+		<field name="balance" expr="amount-amtpaid" type="decimal" caption="Balance" />
+
+		<field name="remarks" caption="Remarks"/>
+		<field name="yearmonth" expr="(year*12)+month" />
+
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one">
+			<key field="itemid" target="objid" />
+		</complex>	
+
+	</element>
+</schema>

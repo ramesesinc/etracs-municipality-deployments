@@ -1,0 +1,79 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import market.facts.*;
+import com.rameses.rules.common.*;
+
+class MarketBillingFactService {
+	
+	@Service("BillingRuleService")
+	def billingSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("market_account")
+	def acctEm;
+	
+	@DataContext("market_account_rate")
+	def acctRate;
+
+	def buildRates(def acctid, def fromdate, def todate, def df ) {
+		def list = acctRate.find( [acctid: acctid ] ).orderBy("effectivedate DESC").list();
+		def cal = Calendar.instance;
+		def mlist = [];
+		list.each {
+			def ed = df.parse( df.format( it.effectivedate ));
+			mlist.add(0, new MarketRentalRate( fromdate: ed, todate: todate, rate: it.rate ));
+			cal.setTime( ed );
+			cal.add( Calendar.DATE, -1 );
+			todate = cal.getTime();
+		}
+		return mlist;
+	}
+
+	@After(pattern="FactBuilderService.getFacts", eval="#{args[0].rulename == 'marketbilling' }")
+	public void fetchMarketBillingFacts( def evt ) {
+		def params = evt.args[0].params;
+		def factBuilder = evt.result;
+
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def acctid = params.acctid;
+		def m = acctEm.find( [objid: acctid ] ).first();
+
+        def o = params;
+		if(!o.billdate) {
+			o.billdate = df.parse( df.format( dateSvc.getServerDate()));
+		}
+		else {
+			o.billdate =  df.parse( o.billdate );
+		}	
+		if(!o.todate ) o.todate = o.billdate;
+
+		def fromdate = df.parse( df.format( m.nextbilldate ));
+		def todate = df.parse( df.format( o.todate ));
+
+		//store fromdate,todate in params so we can recover it back
+		params.fromdate = fromdate;
+		params.todate = todate;
+
+
+		def _rates = buildRates(acctid, fromdate, todate, df );
+
+		def facts = [];
+		facts << new MarketBilling(fromdate: fromdate, todate: todate );
+		facts << new MarketAccount(paymentmode: m.paymentmode);		
+		facts.addAll( _rates ); 
+
+
+		factBuilder.facts = facts;
+		
+	}
+
+
+
+
+}

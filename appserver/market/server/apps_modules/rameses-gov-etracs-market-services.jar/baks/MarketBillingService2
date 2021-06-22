@@ -1,0 +1,102 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+import market.facts.*;
+import com.rameses.rules.common.*;
+
+import treasury.utils.*;
+import treasury.facts.*;
+
+
+class MarketBillingService {
+	
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("market_account_rate")
+	def acctRate;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_rental_ledger")
+	def rentalEm;
+
+
+	void addRentalRates(def acctid, def fromdate, def todate, def factBuilder ) {
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def list = acctRate.find( [acctid: acctid ] ).where('effectivedate >= :ndate', [ndate: fromdate]).orderBy("effectivedate DESC").list();
+		def cal = Calendar.instance;
+		def mlist = [];
+		list.each {
+			def ed = df.parse( df.format( it.effectivedate ));
+			mlist.add(0, new MarketRentalRate( fromdate: ed, todate: todate, rate: it.rate ));
+			cal.setTime( ed );
+			cal.add( Calendar.DATE, -1 );
+			todate = cal.getTime();
+		}
+		factBuilder.facts.addAll( mlist );
+	}
+
+	void addUnpaidRentals( def acctid, def factBuilder ) {
+		def sel = "refid:{objid},amount:{amount-amtpaid},fromdate,todate,year,month";
+		def items = rentalEm.select(sel).where( "acctid = :acctid AND amount-amtpaid > 0 ", [acctid: acctid ] ).orderBy("year,month" ).list();
+		items.each {
+			factBuilder.facts << new MarketRentalBillItem( it );
+		}
+	}
+
+	@ProxyMethod
+	public def getBilling( def o ) {
+		if(!o.acctid) throw new Exception("Please indicate acctid in MarketBillingService.getBilling ");
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+
+		def acct = acctEm.find( [objid: o.acctid ] ).first();
+
+		//determine first the fromdate by looking at the last rental date entry and add 1 day
+		def fromdate = acct.startdate;
+		def lastPaidEntry = rentalEm.find( [acctid: o.acctid ] ).select("todate").orderBy("todate DESC").limit(1).first();
+		if(lastPaidEntry?.todate) {
+			fromdate = DateUtil.add( lastPaidEntry.todate, "1d" );
+		}
+		if(!fromdate) 
+			throw new Exception("Please indicate a startdate or add a beginning entry in the ledger");
+
+		fromdate = df.parse( df.format( fromdate ));
+
+		if(!o.billdate) o.billdate = dateSvc.getServerDate();
+		if(o.billdate instanceof Date) {
+			o.billdate = df.parse(df.format(o.billdate));
+		}
+		else {
+			o.billdate = df.parse(  o.billdate );
+		}
+		def billdate = o.billdate;
+		def todate = billdate;
+
+		def factBuilder = new treasury.utils.FactBuilder();
+		factBuilder.facts << new MarketBilling(fromdate: fromdate, todate: todate );
+		factBuilder.facts << new BillDate( billdate );
+		factBuilder.facts << new MarketAccount( paymentmode: acct.paymentmode, fixedrate: (acct.fixedrate == 1 ? true : false ));
+
+		addRentalRates(o.acctid, fromdate, todate, factBuilder );
+		addUnpaidRentals(o.acctid, factBuilder );
+				
+		def req = [rulename: 'marketbilling', params: [acctid: acct.objid ] ];
+		req.factBuilder = factBuilder;
+		if( o.include_items ) req.include_items = true;
+		def res = billingRuleSvc.execute( req );
+		def bill = acct;
+		bill.billitems = res.billitems;
+		bill.amount = res.amount;
+		if(res.items) bill.items = res.items;
+		bill.fromdate = fromdate;
+		bill.todate = todate;
+		return bill;
+	}
+
+}

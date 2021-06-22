@@ -1,0 +1,35 @@
+<schema  adapter="market">
+
+	<element tablename="market_payment_item">
+		<field name="objid" primary="true" prefix="MKTPMTITM"/>
+
+		<complex name="parent" ref="market_payment" jointype="many-to-one" includefields="refno,reftype">
+			<key field="parentid" target="objid" />
+		</complex>
+	
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one">
+			<key field="itemid" target="objid" />
+		</complex>
+			
+		<field name="acctid" />	
+		<field name="refid" />	
+		<field name="reftype" />	
+
+		<field name="month"  type="integer"/>	
+		<field name="year"  type="integer"/>	
+
+		<field name="fromdate" type="date" />
+		<field name="todate" type="date" />
+
+		<field name="amount"  required="true" type="decimal" />
+		<field name="discount"  required="true" type="decimal" />		
+		<field name="surcharge"  required="true" type="decimal" />
+		<field name="interest"  required="true" type="decimal" />
+		<field name="rate"  type="decimal" />
+		<field name="ratetype" />
+
+		<field name="yearmonth" expr="(year*12)+month" />
+
+	</element>
+</schema>
+

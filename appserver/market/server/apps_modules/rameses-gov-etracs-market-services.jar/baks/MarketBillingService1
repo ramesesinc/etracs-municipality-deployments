@@ -1,0 +1,259 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+import market.facts.*;
+import com.rameses.rules.common.*;
+
+import treasury.utils.*;
+import treasury.facts.*;
+
+
+class MarketBillingService {
+	
+	@Service("AssessmentRuleService")
+	def assmtSvc;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_rentalunit")
+	def mruEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("market_rental_ledger")
+	def rentalEm;
+
+	@DataContext("market_otherfee_ledger")
+	def otherFeeEm;
+
+	@DataContext("market_utility_ledger")
+	def utilityEm;
+
+	@Service("MarketRentalRateService")
+	def rentalRateSvc;
+
+	@DataContext("sys_holiday")
+	def holidayEm;
+
+	@Service("HolidayService")
+	def holidaySvc;
+
+	private void buildInitialFacts( def facts, def o  ) {
+		//add billitem txntype
+		if(!o.filters) throw new Exception("BillItemTxnType otpions filter not provided");
+		o.filters.each {
+			facts << new BillItemTxnTypeOption( txntype : it );
+		}
+		
+		facts << new HolidayFact(  
+			handler: { dt->
+				def h = holidaySvc.lookup(dt);
+				return (h!=null);
+			}
+		);
+
+		def svrDate = dateSvc.getBasicServerDate();
+		if( o.todate ) o.billdate = o.todate;
+		def billdate =  (o.billdate!=null)? o.billdate: svrDate;
+		if(!(billdate instanceof Date)) {
+			def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			billdate = df.parse( billdate );
+		}
+		facts << new treasury.facts.BillDate( billdate );
+		facts << new treasury.facts.SystemDate(svrDate);
+		if( o.partial ) {
+			facts << new treasury.facts.Payment( amount: o.partial );
+		}
+	}
+
+	private void buildAccountFacts( def facts, def acctid  ) {
+		def ma = acctEm.find([objid:acctid] ).first();
+		def mu = mruEm.find( [objid: ma.unitid ]).first(1); 
+
+		facts << new MarketAccount( ma );
+		facts << new MarketRentalUnit( mu );
+		mu.attributes.each {
+			facts << new MarketAttribute(name: it.attributeid );
+		}
+	}
+ 
+ 	private void buildRentalFacts( def facts ) {
+ 		
+ 		def ma = facts.find{ it instanceof market.facts.MarketAccount };
+ 		def mu = facts.find{ it instanceof market.facts.MarketRentalUnit };
+
+ 		if( !ma.lastdatepaid )
+ 			throw new Exception("Market Billing Error. lastdatepaid is required in the market account ledger");
+ 		def fromdate =  new DateBean(ma.lastdatepaid);
+ 		def bill = facts.find{ it instanceof treasury.facts.BillDate };
+ 		def todate = new DateBean(bill.date);
+
+			//use fromyear - 1 to ensure that it will be always be included.
+		def rates = rentalRateSvc.getRatesFact(facts, (fromdate.year-1), todate.year );
+		facts.addAll(rates);
+		ma.ratetype =  rates[0].type;
+		mu.ratetype = rates[0].type;
+ 		
+		//load the unpaid market rentals
+		rentalEm.find( [acctid: ma.objid ]).where("amount-amtpaid > 0").list().each {
+			try {
+				facts << new MarketRentalBillItem( refid:it.objid, ledgertype:'market_rental_ledger',  
+					rate:it.rate, ratetype:it.ratetype,
+				 year: it.year, month: it.month, txntype: "MARKETRENTAL-BAL", 
+				 fromdate: (it.ratetype=='MONTH')?it.fromdate:it.currdate, 
+				 todate:it.todate,
+				 amount:it.amount-it.amtpaid, remarks: it.remarks );
+			}
+			catch(e) {
+				throw new Exception("Error loading market rental billitem");	
+			}
+		};
+	}
+
+	public void buildOtherFeeFacts( def facts ) {
+		def ma = facts.find{ it instanceof market.facts.MarketAccount };
+		//add other fees
+		otherFeeEm.find( [acctid: ma.objid ]).where("amount - amtpaid > 0").list().each {
+			facts << new MonthBillItem( refid:it.objid, ledgertype:'market_otherfee_ledger', 
+				 year: it.year, month: it.month, txntype: it.txntypeid, 
+				amount:it.balance, remarks: it.remarks );
+		};
+	}
+
+	public void buildUtilityFacts( def facts ) {
+		def ma = facts.find{ it instanceof market.facts.MarketAccount };
+		utilityEm.where( "parent.acctid =:pid", [pid: ma.objid ] ).where("amount-amtpaid > 0").list().each {
+			facts <<  new MonthBillItem( refid:it.objid, ledgertype:'market_utility_ledger',
+				 year: it.year, month: it.month, txntype: it.txntypeid, amount:it.balance );
+		};
+	}
+
+	
+	/***************************************************************************************************
+	* Two lists will be returned. 
+	* billitems = represent the data in expanded form i.e. per month w/ the surcharge/interest in 1 row
+	* items = the summarized view per account (used in receipts);
+	****************************************************************************************************/
+	def formatDateRange( def d1, def d2 ) {
+        def mdy = new java.text.SimpleDateFormat("MMM dd yyyy");
+        def md = new java.text.SimpleDateFormat("MMM dd");
+        def dy = new java.text.SimpleDateFormat("dd yyyy");
+
+        def db1 = new DateBean( d1 );
+        def db2 = new DateBean( d2 );
+        if(db1.year==db2.year) {
+            if( db1.month == db2.month ) { 
+                return md.format(d1)+"-"+dy.format(d2) ; 
+            }
+            else {
+                return md.format(d1) + "-" + mdy.format(d2) ;
+            }
+        }
+        else {
+            return mdy.format(d1)+"-"+mdy.format(d2); 
+        }
+     }
+
+	private def processBill(def facts) {
+		def ma = facts.find{ it instanceof MarketAccount };
+		def mu = facts.find{ it instanceof MarketRentalUnit };
+
+		def fb = new FactBuilder();
+		fb.facts.addAll(facts);
+
+		def m = [items:[], billitems: [] ];
+		m.acctno = 	ma.acctno;
+		m.acctid = ma.objid;
+
+		def resultHandler = [
+			getFactKeyValue : { v->
+				if(v instanceof DueDate ) {
+					m.duedate = v.date;
+				}
+				else if(v instanceof MarketAccount ) {
+					m.ratetype = v.ratetype;
+				}
+				else if(v instanceof MonthBillItem) {
+					def itm = v.toMap();
+					if( itm.item?.objid == null ) {
+						throw new Exception("There is no account mapping for " + itm.txntype );						
+					}
+					m.billitems << itm;
+
+					//add to item
+					def ve = m.items.find{ xx-> xx.item.objid == itm.item.objid } 
+					if( ve == null ) {
+						ve = [:];
+						ve.item = itm.item;
+						ve.amount = itm.amount;
+						ve.fromdate = itm.fromdate;
+						ve.todate = itm.todate;
+						ve.months = 1;
+						m.items << ve;	
+					}
+					else {
+						ve.amount += itm.amount;
+						ve.months ++;
+						if( itm.fromdate < ve.fromdate ) ve.fromdate = itm.fromdate;
+						if( itm.todate > ve.todate) ve.todate = itm.todate;
+					};
+					m.fromdate = ve.fromdate;
+					m.todate = ve.todate;
+					ve.remarks = "|" + mu.unitno + " (" + formatDateRange( m.fromdate, m.todate) + ")";
+				}	
+				else if( (v instanceof BillItem) || (v instanceof SummaryBillItem) ) {
+					def itm = v.toMap();
+					m.items << itm;									
+				}
+				else if( v instanceof BillSubItem ) {
+					def itm = v.toMap();
+					itm.year = v.parent.year;
+					itm.fromdate = v.parent.fromdate;
+					itm.todate = v.parent.todate;
+					def ve = m.items.find{ xx-> xx.item.objid == itm.item.objid }
+					if( !ve ) {
+						ve = itm;
+						m.items << ve;
+					}
+					else {
+						ve.amount += itm.amount;
+						if( itm.fromdate < ve.fromdate ) ve.fromdate = itm.fromdate;
+						if( itm.todate > ve.todate) ve.todate = itm.todate;
+						ve.remarks = "|" + mu.unitno + " (" + formatDateRange( m.fromdate, m.todate) + ")";
+					}
+					
+				}
+				return null;
+			}
+		] as ResultHandler;
+		assmtSvc.execute( "marketbilling", [:], fb, resultHandler );
+
+		if(!m.items) 
+			throw new Exception("No billitems found");
+
+		m.items = m.items.sort{ (it.sortorder==null)?0:  it.sortorder };
+		m.billitems = m.billitems.sort{  (it.sortorder==null)?0:  it.sortorder };
+
+		m.amount = NumberUtil.round(m.items.sum{ it.amount });
+		if( m.duedate ==null ) m.duedate = m.billitems.max{ it.duedate }?.duedate;
+		return m;
+	}
+
+
+	@ProxyMethod
+	public def getBilling( def o ) {
+		if( !o.acctid ) throw new Exception("acctid is required in MarketBillingService.getBilling");
+
+		def facts = [];
+		buildInitialFacts(facts, o );
+		buildAccountFacts(facts, o.acctid );
+		buildRentalFacts( facts );
+		buildUtilityFacts( facts );
+		buildOtherFeeFacts( facts );
+		return processBill(facts );
+	}
+
+}

@@ -1,0 +1,81 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+import market.facts.*;
+import com.rameses.rules.common.*;
+
+import treasury.utils.*;
+import treasury.facts.*;
+
+
+class MarketCashReceiptService {
+	
+	@Service("MarketBillingService")
+	def billingSvc;
+
+	@Service("NumberService")
+	def numSvc;
+
+	@DataContext("market_itemaccount")
+	def itemAcctEm;
+
+	@ProxyMethod
+	public def getBilling(def o ) {
+		o.include_items = true;
+		def m = billingSvc.getBilling( o );
+
+		if( !m.billitems )
+			throw new Exception("No billitems found!");
+		if(!m.items)	
+			throw new Exception("No items found");
+
+		def acctMap = [:]	
+		def findAcct = { id->
+			if( !acctMap.containsKey(id) ) {
+				def itm = itemAcctEm.find( [objid: id] ).first();
+				if(!itm) throw new Exception("Account not found " + id);
+				if(!itm.item) throw new Exception("Please define an account for " +id );
+				acctMap.put(id, itm);
+			}	
+			return acctMap.get(id);	
+		}	
+
+		m.items.each {
+			if(it.billcode == null) throw new Exception("item bill code must not be null for txntype " + it.txntype )
+			it.item = findAcct( it.billcode );
+		}
+
+		def df = new java.text.SimpleDateFormat("MMM dd yyyy");
+		def fromdate = null;
+		def todate = null;
+		def itemGrps = m.items.groupBy{ it.item };
+		def items = [];
+		itemGrps.each { k,v->
+			def itm = [:];
+			itm.item = k.item;
+			itm.amount = numSvc.round( v.sum{ it.amount } );
+			def xfromdate = v.findAll{it.fromdate !=null}.min{ it.fromdate }?.fromdate;
+			def xtodate = v.findAll{it.todate !=null}.max{ it.todate }?.todate;
+
+			itm.remarks = " Unit # " + m.unit.code +  " ";
+			if(xfromdate ) itm.remarks += df.format(xfromdate);
+			if(xtodate) itm.remarks += ' to ' + df.format(xtodate);			
+			items << itm;
+		}
+
+		def bill = [:];
+		bill.acctid = m.objid;		
+		bill.unitno = m.unit.code;
+		bill.acctname = m.acctname;
+		bill.acctno = m.acctno;
+		bill.fromdate = m.fromdate;
+		bill.todate = m.todate;
+		bill.billitems = m.billitems;
+		bill.items = items;
+		bill.amount = m.amount;
+		return bill;
+	}
+
+
+}

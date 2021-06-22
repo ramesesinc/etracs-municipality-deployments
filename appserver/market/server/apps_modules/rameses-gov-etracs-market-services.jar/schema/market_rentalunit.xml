@@ -1,0 +1,31 @@
+<schema  adapter="market">
+	<element tablename="market_rentalunit">
+		<field name="objid" primary="true" prefix="MKTUNT"/>
+		<field name="state" required="true" defaultValue="ACTIVE"/>
+		<field name="unittype" required="true" lov="MARKET_UNIT_TYPES" caption="Type"/>
+		<field name="code" required="true" searchable="true" indexed="true" caption="Unit Code"/>
+		<field name="ratetype" required="true" caption="Rate Type"/>
+
+		<field name="indexno" required="true" type="integer" caption="Index No" defaultValue="0" indexed="true"/>
+		<field name="areasqm" required="true" type="decimal" caption="Area (sqm)" />
+
+		<complex name="section" ref="market_section" jointype="many-to-one" required="false" includefields="objid,name">
+			<key field="sectionid" target="objid" />
+		</complex>
+		<complex name="cluster" ref="market_cluster" jointype="many-to-one" required="false" 
+			includefields="objid,name,description,market.name,market.objid">
+			<key field="clusterid" target="objid" />
+		</complex>
+		
+		<field name="currentacctid" />
+		<complex name="currentaccount" ref="market_account" jointype="many-to-one" required="false" 
+				includefields="objid,acctno,acctname,owner.name,owner.objid,owner.address.text,dateclosed">
+			<key field="currentacctid"  target="objid"/>
+		</complex>	
+
+		<complex name="attributes" ref="market_rentalunit_attribute" jointype="one-to-many" required="false">
+			<key field="objid"  target="unitid"/>
+		</complex>	
+
+	</element>
+</schema>

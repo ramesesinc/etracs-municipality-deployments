@@ -1,0 +1,71 @@
+import com.rameses.annotations.*;
+
+import treasury.facts.*;
+import com.rameses.rules.common.*;
+import treasury.utils.*;
+import market.facts.*;
+
+class MarketUtilityService {
+	
+	@Service("BillingRuleService")
+	def ruleSvc;
+
+	@DataContext("market_utility")
+	def utilityEm;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_rentalunit")
+	def unitEm;
+
+	@ProxyMethod 
+	public def calculate( params ) {
+
+		def acct = acctEm.find( [objid: params.acctid ] ).first();
+		if(!acct) throw new Exception("Account not found");
+		def unit = unitEm.find([objid: acct.unit.objid ] ).first();
+
+		def mu = new MarketUtilityBillItem( [year:params.year, month: params.month, type:params.type?.toUpperCase() ] );
+		if( params.volume ) mu.volume = params.volume;
+
+		def factBuilder = new treasury.utils.FactBuilder();
+		factBuilder.facts << new MarketAccount( paymentmode: acct.paymentmode );
+		factBuilder.facts << new MarketRentalUnit( unit );		
+		factBuilder.facts << mu;
+
+		def req = [rulename: 'marketutility', params:[acctid: params.acctid], factBuilder: factBuilder ];
+		req.include_items =false;
+		req.include_billitems =false;
+
+		def res = ruleSvc.execute( req );
+
+		def mm = [:];
+		mm.fromdate = mu.fromdate;
+		mm.todate = mu.todate;
+		mm.nextbilldate = mu.nextbilldate;
+		mm.amount = mu.amount;
+		mm.rate = mu.rate;
+		return mm;	
+	} 	
+
+	@ProxyMethod
+	public void create( def o ) {
+		o.previd = o.prev?.objid;
+		def z = utilityEm.create( o );
+		if(o.prev?.objid) {
+			//re update nextid
+			utilityEm.find( [objid: o.prev.objid] ).update( [nextid: z.objid ] );
+		}
+
+		//this is just to ensure that we do not have another null entry
+		def c = utilityEm.find( [acctid: z.acctid] ).where( "type = :type AND nextid IS NULL", [type: o.type ]).select("c:{COUNT(*)}").val();
+		if( c != 1) {
+			throw new Exception("There should only be one active current entry. There is a possibility of 2 null nextid entries. Please have this checked by the developer");
+		}
+	}
+
+
+	
+
+}

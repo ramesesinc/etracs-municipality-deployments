@@ -1,0 +1,14 @@
+<schema  adapter="market">
+	<element tablename="market_itemaccount">
+		<field name="objid" primary="true"/>
+		<field name="title" />
+		<field name="item_objid" />
+		<field name="item_code" caption="Acct Code"/>		
+		<field name="item_title" caption="Acct Title" />
+		<field name="item_fund_objid" caption="Fund Code"/>	
+		<field name="sortorder" />
+		<field name="system" />
+		<field name="type" />			
+	</element>
+</schema>
+

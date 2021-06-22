@@ -1,0 +1,37 @@
+import com.rameses.annotations.*;
+
+class MarketUtiltityListInterceptor{
+	
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname.matches('vw_market_account_(electricity|water)_list') }" )
+	public void getAcctNodeList(def evt) {
+		def result = evt.result;
+		result << [ title: 'Active', id:'active'];
+		result << [ title: 'For Reading', id:'reading'];
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname.matches('vw_market_account_(electricity|water)_list')  }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.id ) return;
+
+		def str = "";
+		def m = [:];
+
+		
+		if ( o.node.id == 'reading' ) {
+			str = " nextbilldate <= NOW() ";
+		} else {
+			str = " nextbilldate > NOW() "; 
+		} 
+	
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+}

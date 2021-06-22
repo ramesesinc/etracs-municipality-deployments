@@ -1,0 +1,9 @@
+<schema  adapter="market">
+	<element tablename="market_rental_payment_status">
+		<field name="objid" primary="true" prefix="MKTRNTPMTSTAT"/>
+		<field name="acctid" />
+		<field name="partialbalance" type="decimal"/>
+		<field name="paiduntildate" type="date"/>
+		<field name="paymentrefid" />
+	</element>
+</schema>

@@ -1,0 +1,61 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+
+class MarketAccountStatementReportService {
+	
+	@Service("BillingRuleService")
+	def billingSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_payment")
+	def pmtEm;
+
+	@DataContext("market_payment_detail")
+	def pmtDetailEm;
+	
+	@After(pattern="FormReportService.getData", eval="#{args[0].reportid == 'market_statement' }")
+	public void getData( def evt ) {
+		def p = evt.args[0];
+		def result = evt.result;
+		result.status = 0;
+
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def acctid = p.parameters.acctid;
+
+		def billitems = [];
+		def m = billingSvc.execute( [rulename:'marketbilling', params: p.parameters ] );
+		if(m.billitems) {
+			m.billitems.each {
+				billitems << [ particulars: 'MARKET RENTAL', amount: it.amount, txndate: it.fromdate, surcharge: it.surcharge, 
+					discount: it.discount, interest: it.interest, amtdue:  (it.amount + it.surcharge + it.interest - it.discount), amtpaid: 0 ];
+			}			
+		};
+
+		def pmts = pmtEm.find( [acctid: acctid ] ).list();
+		pmts.each {
+			billitems << [ particulars : 'Payment ' + it.refno + ' dated: ' + it.refdate, txndate: it.refdate, amount:0, surcharge:0, interest:0, discount:0,
+					amtdue: 0, amtpaid: it.amount ]
+		}
+
+		//infos
+		def acct = acctEm.find( [objid: p.parameters.acctid ]).first();
+		acct.items = billitems;
+
+		//acct.duedate = m.duedate;
+		acct.grandtotal = acct.items.sum{ it.amtdue };
+		acct.billdate = p.parameters.billdate;
+		
+		//the purpose of this is for the reports
+		//acct.hasitems = (acct.items) ? true : false;
+		
+		result.data = acct;
+	}
+
+
+}

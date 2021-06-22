@@ -1,0 +1,17 @@
+import com.rameses.annotations.*;
+
+class MarketUtilityPersistenceInterceptor{
+	
+	@DataContext("market_electricity")
+	def elecEm;
+
+	
+	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'market_electricity' }")
+	public void removeElectiricity(def evt) {
+		def o = evt.args[0];
+		if(o.prev?.objid) {
+			elecEm.find( [objid: o.prev.objid] ).update( [nextid: '{NULL}'] );
+		}
+	}
+
+}

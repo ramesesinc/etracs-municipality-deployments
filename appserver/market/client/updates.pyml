@@ -1,0 +1,8 @@
+app:
+
+  env:
+    "market.app.host" : "${app_server_ip}:8074"
+    "market.app.context" : "enterprise"
+
+  modules:
+    - { order: 400, version: 1.00, file: "modules/market/rameses-gov-etracs-market.jar" }

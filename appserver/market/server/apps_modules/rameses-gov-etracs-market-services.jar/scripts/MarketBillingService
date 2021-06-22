@@ -1,0 +1,152 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+import market.facts.*;
+import com.rameses.rules.common.*;
+import treasury.utils.*;
+import treasury.facts.*;
+
+
+class MarketBillingService {
+	
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("market_rental_rate")
+	def rentalRate;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_rentalunit")
+	def unitEm;
+
+	@DataContext("market_rental_payment_status")
+	def statusEm;
+
+	@DataContext("vw_market_utility_log")
+	def utilityEm;
+
+	@DataContext("market_otherfee")
+	def otherFeeEm;
+
+	def getRentalRates(def unitid, def fromdate, def todate, def ratetype ) {
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def list = rentalRate.find( [unitid: unitid ] ).orderBy("effectivedate DESC").list();
+		def cal = Calendar.instance;
+		def mlist = [];
+		list.each {
+			def ed = df.parse( df.format( it.effectivedate ));
+			mlist.add(0, new MarketRentalRate( fromdate: ed, todate: todate, rate: it.rate, ratetype: ratetype ));
+			cal.setTime( ed );
+			cal.add( Calendar.DATE, -1 );
+			todate = cal.getTime();
+		}
+		return mlist;
+	}
+
+	def getUtilityBillItems(def acctid, def type, def todate ) {
+		def mlist = [];
+		def cond = " type=:type AND todate < :todate AND amount - amtpaid > 0 ";
+		def list = utilityEm.find( [acctid: acctid ] ).where( cond, [type:type, todate: todate]).orderBy("fromdate ASC").list();
+		list.each {
+			def mu = new MarketUtilityBillItem( year:it.year, month: it.month, amount: it.amount - it.amtpaid, refid: it.objid );
+			mu.type = it.type;
+			mu.fromdate = it.fromdate;
+			mu.todate = it.todate;
+
+			if(it.volume) mu.volume = it.volume;
+			if(it.rate) mu.rate = it.rate;
+			if(it.reading) mu.reading = it.reading;
+			if(it.prev?.reading) mu.prevreading = it.prev.reading;
+			mlist << mu;
+		}
+		return mlist;
+	}
+
+	def getOtherFeeBillItems(def acctid, def todate ) {
+		def mlist = [];
+		def cond = " amount - amtpaid > 0 AND (todate IS NULL OR todate <= :todate )";
+		def list = otherFeeEm.find( [acctid: acctid ] ).where( cond, [todate: todate] ).orderBy("yearmonth ASC").list();
+		list.each {
+			def mu = new MonthBillItem( year:it.year, month: it.month, amount: it.amount - it.amtpaid, refid: it.objid, billcode: it.item.objid );
+			if(it.fromdate) mu.fromdate = it.fromdate;
+			if(it.todate) mu.todate = it.todate;
+			mlist << mu;
+		}
+		return mlist;
+	}
+
+	@ProxyMethod
+	public def getBilling( def o ) {
+		def txntypes = o.txntypes;
+		boolean include_rental = true;
+		boolean include_electricity = true;
+		boolean include_water = true;
+		boolean include_other = true;
+		if(txntypes) {
+			if(!txntypes.contains("RENTAL")) include_rental = false;
+			if(!txntypes.contains("ELECTRICITY")) include_electricity = false;
+			if(!txntypes.contains("WATER")) include_water = false;
+			if(!txntypes.contains("OTHER")) include_other = false;
+		}
+
+		if(o.billdate) o.todate = o.billdate;
+
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def todate = o.todate;
+		if(todate) {
+			todate = df.parse( todate );
+		}	
+		else {
+			todate = df.parse( df.format( dateSvc.getServerDate() ));
+		}
+		
+		def acct = acctEm.find( [objid: o.acctid ] ).first();
+		if(!acct) throw new Exception("Account not found");
+		def unit = unitEm.find([objid: acct.unit.objid ] ).first();
+
+		//find partial balance and paid until date.
+		def pmtStat = statusEm.find( [acctid: o.acctid ] ).orderBy("paiduntildate DESC").limit(1).first();
+		if(!pmtStat) throw new Exception("Please add first beginning balance entry to this account");
+
+		def fromdate = DateFunc.getDayAdd( pmtStat.paiduntildate, 1 );
+
+		def factBuilder = new treasury.utils.FactBuilder();
+		factBuilder.facts << new MarketAccount( paymentmode: acct.paymentmode, partialbalance: pmtStat.partialbalance );
+		factBuilder.facts << new MarketBilling( fromdate: fromdate, todate: todate );
+		factBuilder.facts << new MarketRentalUnit( unit );		
+		if(include_rental) factBuilder.facts.addAll( getRentalRates( acct.unit.objid, fromdate, todate, acct.unit.ratetype ) );
+		if(include_electricity) factBuilder.facts.addAll( getUtilityBillItems( acct.objid, 'ELECTRICITY', todate ) );
+		if(include_water) factBuilder.facts.addAll( getUtilityBillItems( acct.objid, 'WATER', todate ) );
+		if(include_other) factBuilder.facts.addAll( getOtherFeeBillItems( acct.objid, todate ) );
+
+		//run the rules
+		def req = [rulename: 'marketbilling', params: [acctid: acct.objid ] ];
+		req.factBuilder = factBuilder;
+		if( o.include_items ) req.include_items = true;
+		def res = billingRuleSvc.execute( req );
+
+		def bill = acct;
+		bill.billitems = res.billitems;
+		bill.amount = res.amount;
+		if(res.items) bill.items = res.items;
+
+		if(include_rental) {
+			def bitems = bill.billitems.findAll{ it.type == 'market_rental' }.sort{it.fromdate}; 
+			if ( bitems ) {
+				bill.fromdate = bitems.first().fromdate;
+				bill.todate = bitems.last().todate;		
+			}
+		}
+
+		bill.billdate = todate;
+
+		return bill;
+	}
+
+}

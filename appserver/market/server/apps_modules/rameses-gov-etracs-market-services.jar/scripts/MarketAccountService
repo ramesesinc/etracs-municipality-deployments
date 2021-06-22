@@ -1,0 +1,33 @@
+import com.rameses.annotations.*;
+
+class MarketAccountService {
+	
+	@DataContext('market_account') 
+	def acct_em;
+
+	@DataContext('market_rentalunit') 
+	def rentalunit_em;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod 
+	public def closeAccount( params ) {
+		def m = acct_em.find([ objid: params.objid ]).first();
+		rentalunit_em.find( [objid: m.unitid ] ).update( [currentacctid: '{NULL}' ] );
+		acct_em.find([ objid: params.objid ]).update([ state: 'CLOSED', dtclosed: dateSvc.getServerDate() ]); 
+		return [ state: 'CLOSED' ];  
+	} 	
+
+	@ProxyMethod 
+	public def blockAccount( params ) {
+		acct_em.find([ objid: params.objid ]).update([ state: 'BLOCKED' ]); 
+		return [ state: 'BLOCKED' ];
+	} 	
+
+	@ProxyMethod 
+	public def unblockAccount( params ) {
+		acct_em.find([ objid: params.objid ]).update([ state: 'ACTIVE' ]); 
+		return [ state: 'ACTIVE' ];
+	} 
+}

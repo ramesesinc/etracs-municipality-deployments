@@ -1,0 +1,50 @@
+import com.rameses.annotations.*;
+import java.text.*;
+import com.rameses.functions.*;
+
+class MarketUtilityListInterceptor {
+	
+	@After(pattern="QueryService.getNodeList", eval="#{ args[0]._schemaname == 'vw_market_utility_current' }")
+	public void getAcctNodeList(def evt) {
+		def result = evt.result;
+		result << [ title: 'All', id:'all'];
+		result << [ title: 'Active', id:'active'];
+		result << [ title: 'For Billing', id:'forbilling'];		
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{ args[0]._schemaname == 'vw_market_utility_current' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		//o.debug = true;
+		if( !o.node?.id ) return;
+
+		def str = "";
+		def m = [:];
+
+		switch( o.node.id ) {
+			case 'all':
+				str = "1=1"
+				break;
+
+			case 'active':
+				str += ' nextbilldate > NOW() '; 
+				break;
+
+			case 'forbilling':
+				str += ' nextbilldate <= NOW() ';
+				break;
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+
+
+}

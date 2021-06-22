@@ -1,0 +1,26 @@
+<schema  adapter="market">
+	<element tablename="market_utility">
+		<field name="objid" primary="true" prefix="MKTACCTUTIL" />
+		<field name="acctid" />
+		<!--type is electricity OR water -->
+		<field name="type" required="true"/>		
+		<field name="readingdate" type="date"/>
+		<field name="reader_objid" />
+		<field name="reader_name" />
+		<field name="reading" type="integer"/>
+		<field name="volume" type="integer"/>
+		<field name="capacity" type="integer"/>		
+		<field name="rate" type="decimal"/>
+		<field name="amount" type="decimal"/>
+		<field name="amtpaid" type="decimal"/>
+		<field name="fromdate" type="date"/>
+		<field name="todate" type="date"/>
+		<field name="nextbilldate" type="date" caption="Next Bill Date"/>
+		<field name="year" type="integer" caption="Year"/>
+		<field name="month" type="integer" caption="Month"/>
+		<field name="nextid" />
+		<field name="previd" />	
+
+		<field name="yearmonth" expr="(year*12)+month"/>	
+	</element>
+</schema>

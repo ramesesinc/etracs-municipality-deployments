@@ -1,0 +1,35 @@
+version: "3"
+
+services:
+
+  market-server:
+    container_name: market-server
+    image: ramesesinc/local-market-server:v001
+    restart: always
+
+    logging: 
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+
+    env_file:
+      - ./env.conf
+      - ../../_res/env.conf
+      - ../../_custom/env.conf
+
+    ports:
+      - "8074:8070"
+
+    volumes:
+      - ../../_res/connections:/apps/server/services/apps/enterprise/connections/ext
+      - ../../_custom/datasources/marketds:/apps/server/services/datasources/mainds
+
+      - ./_dev_lib/db-dialect.jar:/apps/server/lib/db-dialect.jar
+      - ./_dev_lib/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
+      - ./_dev_lib/rameses-main-bootloader.jar:/apps/server/lib/rameses-main-bootloader.jar
+      - ./_dev_lib/rameses-osiris3-core2.jar:/apps/server/lib/rameses-osiris3-core2.jar
+      - ./_dev_lib/rameses-osiris3-server.jar:/apps/server/lib/rameses-osiris3-server.jar
+
+      - ./server/services_modules:/apps/server/services/modules
+      - ./server/apps_modules:/apps/server/services/apps/enterprise/modules
