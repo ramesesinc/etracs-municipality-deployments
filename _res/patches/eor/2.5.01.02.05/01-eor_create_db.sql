@@ -1,6 +1,6 @@
-create database eor_sipocot;
+create database eor;
 
-use eor_sipocot; 
+use eor; 
 
 SET FOREIGN_KEY_CHECKS=0;
 
