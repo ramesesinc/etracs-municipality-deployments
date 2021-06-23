@@ -7,7 +7,7 @@ Pass: p@ssword#
 [DB Access]
 IP   : 192.168.2.12
 User : root
-Pass : P@ssw0rd#
+Pass : p@ssw0rd#
 
 
 [Webmin]
