@@ -51,5 +51,5 @@ services:
       - ../../_custom/env.conf:/apps/server/public/resources/custom.conf
       - ../../_custom/module-client:/apps/server/public/resources/downloads/modules/custom
 
-      - ../../appserver/epayment/module-client:/apps/server/public/resources/downloads/modules/epayment
+      - ../../appserver/epayment/client:/apps/server/public/resources/downloads/modules/epayment
       - ../../appserver/market/client:/apps/server/public/resources/downloads/modules/market
