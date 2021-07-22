@@ -1,0 +1,46 @@
+[Docker Server]
+IP  : 192.168.1.44
+User: adminetracs
+Pass: aDMin1091
+
+
+[DB Access]
+Type : MSSQL
+IP   : 192.168.11.3
+User : sa
+Pass : vf2System923
+
+
+[Webmin]
+URL  : https://192.168.1.44:10000
+User : <Same from Docker Server>
+Pass : <Same from Docker Server>
+
+
+[Portainer]
+URL  : http://192.168.1.44:9000
+User : admin
+Pass : p@ssw0rd
+
+
+[Samba]
+URL  : \\192.168.1.44
+User : adminetracs
+Pass : p@ssw0rd
+
+
+[DockerHub Images]
+docker pull nginx:latest
+docker pull ramesesinc/mail-server:latest
+docker pull ramesesinc/notification-server:1.0
+docker pull ramesesinc/queue-server:2.5.02.01
+docker pull ramesesinc/gdx-proxy-server:v002
+docker pull ramesesinc/gdx-client:1.03.01
+docker pull ramesesinc/etracs-web:2.5.02.01
+docker pull ramesesinc/node-download-server:0.0.3
+docker pull ramesesinc/etracs-server-municipality:2.5.04.01.01
+docker pull ramesesinc/local-epayment-server:2.5.01.02.06
+
+
+[GitHub]
+git clone -b nuevavizcaya https://github.com/ramesesinc/etracs-municipality-deployments.git docker 
