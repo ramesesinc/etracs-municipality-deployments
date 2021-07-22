@@ -43,4 +43,4 @@ docker pull ramesesinc/local-epayment-server:2.5.01.02.06
 
 
 [GitHub]
-git clone -b nuevavizcaya https://github.com/ramesesinc/etracs-municipality-deployments.git docker 
+git clone -b nuevavizcaya_bayombong https://github.com/ramesesinc/etracs-municipality-deployments.git docker 
