@@ -40,7 +40,7 @@ class VehicleCashReceiptInterceptor {
 
 		def r = evt.args[0];
 		def t = evt.result;
-		if(!r.info.appid)
+		if ( !r.info.appid )
 			throw new Exception("Error Vehicle CashReceiptService.post. appid is not found");
 
 		def m = [:];
@@ -64,8 +64,11 @@ class VehicleCashReceiptInterceptor {
 			if( it.ledgertype == 'application') {
 				it.apprefid = it.refid;
 			}
+			else if( it.txntype == 'fee') {
+				it.apprefid = it.refid;
+			}
 			else {
-				it.franchiserefid = it.refid;
+				it.franchiserefid = m.franchiseid; 
 			}
 			m.items << it;
 		}
@@ -76,7 +79,7 @@ class VehicleCashReceiptInterceptor {
 			return; 
 		}
 		
-		if(r.info.appid ) {
+		if ( r.info.appid ) {
 			def pp = [:];
 			pp.processname = "vehicle_application";
 			pp.refid = 	r.info.appid;

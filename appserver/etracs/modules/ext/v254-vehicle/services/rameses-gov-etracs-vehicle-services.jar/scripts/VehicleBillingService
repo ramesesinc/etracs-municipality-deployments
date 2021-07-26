@@ -25,6 +25,9 @@ class VehicleBillingService {
 	@Service("AssessmentRuleService")
 	def assmtSvc;
 
+	@Service(value="HolidayService", connection="enterprise")
+	def holidaySvc;
+
 	@ProxyMethod
 	public def getBilling( def o ) {
 		//find application or vehicleid
@@ -42,36 +45,56 @@ class VehicleBillingService {
 
 	@ProxyMethod
 	public def process( def app ) {
-
-		if(!app.billitems) {
+		if ( !app.billitems ) { 
 			throw new Exception("VehicleBillingService requires billitems");
 		}
-		if(!app.apptype) throw new Exception("app type is required");
-		if(!app.vehicletype) throw new Exception("vehicle type is required");	
-		if(!app.franchise?.controlno) throw new Exception("franchise controlno  is required");	
+
+		if ( !app.apptype ) throw new Exception("app type is required");
+		if ( !app.vehicletype ) throw new Exception("vehicle type is required");	
+		if ( !app.franchise?.controlno ) throw new Exception("franchise controlno  is required");	
 
 		def svrDate = dateSvc.getServerDate();
-		if(!app.billdate) app.billdate = svrDate;
-		
-		def fb = new FactBuilder();
-		fb.facts << new VehicleApplication( app );
-		fb.facts << new VehicleFranchise( app.franchise );
-		fb.facts << new AppDate( app.appdate );
-		fb.facts << new treasury.facts.SystemDate(svrDate);
-		fb.facts << new treasury.facts.BillDate(app.billdate);
-		if(app.payment?.amount) {
-			fb.facts << new treasury.facts.Payment( amount: app.payment.amount );
-		}	
+		if ( !app.billdate ) app.billdate = svrDate;
 
-		def rh = [
-			getFactKeyValue: { f->
-				if( f instanceof DueDate ) {
-					return new ResultKeyValue( "duedate", f.date );
-				}
-			}
-		] as ResultHandler;
+		def factBuilder = new treasury.utils.FactBuilder(); 
+		def facts = factBuilder.facts; 
 
-		return assmtSvc.execute( "vehiclebilling", app, fb, rh );
+		facts << new HolidayFact( 
+			handler: { dt-> 
+				def h = holidaySvc.lookup( dt ); 
+				return ( h != null ); 
+			} 
+		);
+
+		facts << new VehicleApplication( app );
+		facts << new VehicleFranchise( app.franchise );
+		facts << new AppDate( app.appdate );
+		facts << new treasury.facts.SystemDate(svrDate);
+		facts << new treasury.facts.BillDate(app.billdate);
+
+		if ( app.payment?.amount ) {
+			facts << new treasury.facts.Payment( amount: app.payment.amount );
+		}
+
+		if ( app.billitems ) { 
+			factBuilder.addBillItems( app.billitems ); 
+		}
+
+		def actions = new RuleAction();
+		actions.addCommand( "add-duedate", new treasury.actions.AddDueDate());
+		actions.addCommand( "add-billitem", new treasury.actions.AddBillItem());
+		actions.addCommand( "add-discount-item", new treasury.actions.AddDiscountItem());
+		actions.addCommand( "add-surcharge-item", new treasury.actions.AddSurchargeItem());
+		actions.addCommand( "add-interest-item", new treasury.actions.AddInterestItem());
+		actions.addCommand( "summarize-item", new treasury.actions.SummarizeBillItem());
+		actions.addCommand( "apply-payment", new treasury.actions.ApplyPayment());
+
+		actions.addCommand( "vehicle-ask-info", new enterprise.actions.AskInfo());
+
+		ruleSvc.execute("vehiclebilling", facts, actions, null );
+
+		def result = [:]; 
+		result.billitems = facts.findAll{( it instanceof BillItem )}.collect{ it.toMap() } 
+		return result;
 	}
-
 }

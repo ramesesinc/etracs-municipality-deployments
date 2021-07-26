@@ -3,5 +3,5 @@ app:
    env:
 
    modules:
-      - { order: 270, version: 1.06, file: "modules/v254-vehicle/rameses-gov-etracs-vehicle.jar" }
+      - { order: 270, version: 1.07, file: "modules/v254-vehicle/rameses-gov-etracs-vehicle.jar" }
       - { order: 271, version: 1.06, file: "modules/v254-vehicle/rameses-gov-etracs-vehicle-tricycle.jar" }
