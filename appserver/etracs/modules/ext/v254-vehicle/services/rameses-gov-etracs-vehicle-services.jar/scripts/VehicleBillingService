@@ -69,8 +69,8 @@ class VehicleBillingService {
 		facts << new VehicleApplication( app );
 		facts << new VehicleFranchise( app.franchise );
 		facts << new AppDate( app.appdate );
-		facts << new treasury.facts.SystemDate(svrDate);
 		facts << new treasury.facts.BillDate(app.billdate);
+		facts << new treasury.facts.SystemDate(svrDate);
 
 		if ( app.payment?.amount ) {
 			facts << new treasury.facts.Payment( amount: app.payment.amount );
@@ -80,21 +80,29 @@ class VehicleBillingService {
 			factBuilder.addBillItems( app.billitems ); 
 		}
 
-		def actions = new RuleAction();
-		actions.addCommand( "add-duedate", new treasury.actions.AddDueDate());
-		actions.addCommand( "add-billitem", new treasury.actions.AddBillItem());
-		actions.addCommand( "add-discount-item", new treasury.actions.AddDiscountItem());
-		actions.addCommand( "add-surcharge-item", new treasury.actions.AddSurchargeItem());
-		actions.addCommand( "add-interest-item", new treasury.actions.AddInterestItem());
-		actions.addCommand( "summarize-item", new treasury.actions.SummarizeBillItem());
-		actions.addCommand( "apply-payment", new treasury.actions.ApplyPayment());
-
-		actions.addCommand( "vehicle-ask-info", new enterprise.actions.AskInfo());
-
-		ruleSvc.execute("vehiclebilling", facts, actions, null );
+		ruleSvc.execute("vehiclebilling", facts, null, null );
 
 		def result = [:]; 
 		result.billitems = facts.findAll{( it instanceof BillItem )}.collect{ it.toMap() } 
+
+		def sumitems = facts.findAll{( it instanceof SummaryBillItem )}.collect{ it.toMap() } 
+		if ( sumitems ) {
+			def itemAcctUtil = new ItemAccountUtil();
+			sumitems.each{
+				if( it.item?.objid ) {
+					def acct = itemAcctUtil.lookup( it.item.objid );
+					if ( acct?.fund?.objid ) {
+						it.item.fund = [
+							objid: acct.fund.objid, 
+							code: acct.fund.code, 
+							title: acct.fund.title  
+						]; 
+					}
+				}
+			}
+			result.billitems.addAll( sumitems ); 
+		} 
+
 		return result;
 	}
 }

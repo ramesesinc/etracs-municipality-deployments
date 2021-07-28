@@ -58,10 +58,14 @@ class VehicleApplicationService {
 		o.filedby = [objid: env.USERID, name: env.FULLNAME];
 
 		//check fees. do not persist surcharge, interest or discount.
-		if(o.fees) {
-			o.fees = o.fees.findAll{ !it.txntype.matches('surcharge|interest|discount') }
-		};
-		if(o.infos) {
+		if ( o.fees ) { 
+			o.fees.each{ 
+				it.txntype = (it.txntype ? it.txntype : 'fee'); 
+			}
+
+			o.fees = o.fees.findAll{ !it.txntype.toString().matches('surcharge|interest|discount') }
+		} 
+		if ( o.infos ) { 
 			def vi = new VariableInfoUtil("vehicle_variable");
 			o.infos.each {
 				vi.fixData( it, it.datatype, it.value );

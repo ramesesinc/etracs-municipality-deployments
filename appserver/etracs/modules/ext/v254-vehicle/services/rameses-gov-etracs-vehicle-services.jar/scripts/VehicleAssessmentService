@@ -15,57 +15,60 @@ class VehicleAssessmentService {
 	@Env
 	def env;
 
+	@DataContext(dynamic=true)
+	def franchiseEm;
+
+	@DataContext('vehicle_variable')
+	def vehicle_variable;
+
 	@Service("DateService")
 	def dateSvc;
 
 	@Service("AssessmentRuleService")
 	def assmtSvc;
 
-	@DataContext(dynamic=true)
-	def franchiseEm;
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service(value="HolidayService", connection="enterprise")
+	def holidaySvc;
 
 	@ProxyMethod
 	public def assess( def o ) {
 		if(!o.vehicletype) throw new Exception("vehicletype is required in VehicleAssessmentService.assess")
 		if(!o.franchise?.objid) throw new Exception("franchise.objid is required in VehicleAssessmentService.assess")
+		
+		def serverDate = dateSvc.getServerDate();
 
-		def fran = franchiseEm.lookup( "vehicle_franchise_"+o.vehicletype ).find([objid: o.franchise.objid]).first();
-		if(!fran) throw new Exception("Franchise control no. not found")
+		def infoUtil = new VariableInfoUtil(); 
+		infoUtil.provider = new DefaultVariableInfoProvider(); 
+		infoUtil.svc = vehicle_variable; 
 
-		def svrDate = dateSvc.getServerDate();
-		if(!o.billdate) o.billdate = svrDate;
-		if(!o.appdate) o.appdate = svrDate;
+		def fb = buildFactBuilder( serverDate, o, o.infos, null, infoUtil ); 
+		def ctx = buildRuleContext( fb.facts, infoUtil ); 
+		def res = null; 
 
-		def fb = new FactBuilder();
-		fb.variableInfoProvider = new VariableInfoProvider(
-			schemaName:"vehicle_variable",
-			createIntegerFact: { return new VehicleIntegerInfo(); },
-			createDecimalFact: { return new VehicleDecimalInfo(); },
-			createBooleanFact: { return new VehicleBooleanInfo(); },
-			createStringFact : { return new VehicleStringInfo(); }
-		);
+		try {
+			def hdlr = { grpname ->
+				if ( ctx.result.askinfos ) { 
+					return false; 
+				} 
+				return true;
+			} 
 
-		fb.facts << new VehicleApplication( o );
-		fb.facts << new VehicleFranchise( fran );
-		fb.facts << new AppDate( o.appdate );
-		fb.facts << new treasury.facts.BillDate(o.appdate);
-
-		def rh = [
-			getFactKeyValue : { f ->
-				if((f instanceof VariableInfo) || (f instanceof BillItem)) {
-					fb.facts << f;
-				}
-				return null;
-			}
-		] as ResultHandler;
-	
-		def res = assmtSvc.execute( "vehicleassessment", o, fb, rh );
-		if( res.askinfos ) return [askinfos: res.askinfos];
+			res = ruleSvc.execute("vehicleassessment", fb.facts, null, hdlr );
+			if ( res.askinfos ) { 
+				return [askinfos: res.askinfos.collect{ it.toMap() }];
+			} 
+		}
+		finally { 
+			ctx.close(); 
+		}
 
 		/******************************************************
 		* run billing here
 		*******************************************************/
-		rh = [
+		def rh = [
 			getFactKeyValue: { f ->
 				if( f instanceof DueDate ) {
 					return new ResultKeyValue("duedate", f.date);
@@ -74,18 +77,85 @@ class VehicleAssessmentService {
 			}
 		] as ResultHandler;
 
-		if(!res.billitems) 
+		def billitems = fb.facts.findAll{( it instanceof BillItem )}.collect{ it.toMap() } 
+		if ( !billitems )  
 			throw new Exception("There are no billitems computed. Please review the rules");
 
-		def data2 = [billitems: res.billitems, infos: res.infos ];
+		fb = buildFactBuilder( serverDate, o, null, billitems, infoUtil );  
+		ctx = buildRuleContext( fb.facts, infoUtil ); 
+		res = null; 
 
-		res = assmtSvc.execute( "vehiclebilling", data2, fb, rh );
-		def app = [:];
-		app.infos = res.infos;
-		app.items = res.billitems;
-		app.duedate = res.duedate;
-		app.expirydate = res.duedate;
-		return app;
+		try {
+			res = ruleSvc.execute("vehiclebilling", fb.facts, null, null );
+		}
+		finally { 
+			ctx.close(); 
+		}
+
+		billitems = fb.facts.findAll{( it instanceof BillItem )}.collect{ it.toMap() } 
+		def sumitems = fb.facts.findAll{( it instanceof SummaryBillItem )}.collect{ it.toMap() } 
+		if ( sumitems ) billitems.addAll( sumitems ); 
+
+		def duedate = fb.facts.find{( it instanceof treasury.facts.DueDate )}?.date; 
+
+		def result = [:];
+		result.items = billitems;
+		result.duedate = duedate; 
+		result.expirydate = duedate;
+		return result;
+	}
+
+	def buildFactBuilder( serverDate, o, infos, billitems, infoUtil ) {
+		def fran = franchiseEm.lookup( "vehicle_franchise_"+o.vehicletype ).find([objid: o.franchise.objid]).first();
+		if ( !fran ) throw new Exception("Franchise control no. not found")
+
+		if ( !o.billdate ) o.billdate = serverDate;
+		if ( !o.appdate ) o.appdate = serverDate;
+
+		def fb = new treasury.utils.FactBuilder(); 
+		fb.facts << new com.rameses.rules.common.CurrentDate( serverDate );
+		fb.facts << new treasury.facts.SystemDate( serverDate );
+		fb.facts << new treasury.facts.BillDate( o.appdate );
+		fb.facts << new VehicleApplication( o );
+		fb.facts << new VehicleFranchise( fran );
+		fb.facts << new AppDate( o.appdate );
+
+		fb.facts << new HolidayFact( 
+			handler: { dt-> 
+				def h = holidaySvc.lookup( dt ); 
+				return ( h != null ); 
+			} 
+		);
+
+		if ( infos ) {
+			infos.each { info ->
+				fb.facts << infoUtil.createFact( info ); 
+			}
+		} 
+
+		if ( billitems ) { 
+			fb.addBillItems( billitems ); 
+		}
+
+		return fb; 
+	}
+
+	def buildRuleContext( facts, infoUtil ) {
+		def ctx = new RuleExecutionContext( facts ); 
+		ctx.env.infoUtil = infoUtil; 
+
+		if ( ctx.env.infoUtil == null ) {
+			ctx.env.infoUtil = new VariableInfoUtil(); 	
+		}
+
+		if ( ctx.env.infoUtil.svc == null ) {
+			ctx.env.infoUtil.svc = vehicle_variable; 
+		}
+
+		if ( ctx.env.infoUtil.provider == null ) {
+			ctx.env.infoUtil.provider = new DefaultVariableInfoProvider(); 	
+		}
+		return ctx; 
 	}
 }
 
