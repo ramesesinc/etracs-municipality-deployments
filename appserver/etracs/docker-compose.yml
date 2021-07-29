@@ -36,3 +36,4 @@ services:
       - ./dev_modules/bpls:/services/modules/bpls
       - ./dev_modules/etracs:/services/modules/etracs
       - ./dev_modules/enterprise:/services/modules/enterprise
+      - ./dev_modules/entity:/services/modules/entity
