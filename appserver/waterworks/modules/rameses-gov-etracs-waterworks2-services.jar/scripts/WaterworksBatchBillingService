@@ -1,0 +1,236 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import java.text.*;
+
+class WaterworksBatchBillingService {
+	
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterworksBillService")
+	def billSvc;
+
+	@Service("Var")
+	def var;
+
+	@DataContext('waterworks_batch_billing')
+	def batchEm; 
+
+	@DataContext('vw_waterworks_batch_billing')
+	def vwBatchEm;
+
+	@DataContext('waterworks_account')
+	def acctEm; 
+
+	@DataContext('waterworks_bill')
+	def billEm; 
+
+	@DataContext('vw_waterworks_account')
+	def vwAcctEm; 
+
+	@DataContext('waterworks_batch_billing_error')
+	def errorEm; 
+
+	@ProxyMethod
+	public def create( def o ) {
+		//check if there is unclosed previous batch
+		def b = vwBatchEm.find( [subareaid: o.subarea.objid ] ).where(" NOT(task.state = 'end') ").first();	
+		if( b ) throw new Exception("There is still pending batch bill for this subarea. Please close that first");
+
+		def yrmon = "" + o.year + String.format("%02d", o.month);
+		o.objid = "WB" + yrmon +"-"+ o.subarea.code;  
+		o.state = 'DRAFT';	
+		o = batchEm.create( o ); 
+
+		//we also need to update all accounts included in this subarea excludeinbatch to 0;
+		batchEm.resetExcludeInBatchAccounts( [subareaid: o.subarea.objid ] );
+
+		def p = [:];
+		p.processname = 'waterworks_batch_billing';
+		p.refid = o.objid;
+		p.startdate = dateSvc.serverDate;
+		taskSvc.start(p);
+
+		return o;
+	}
+
+	@ProxyMethod
+	public def getProcessInfo( def o ) {
+		def info = [batchid:o.objid, counter: 0, status: 0];
+		if(o.taskstate == 'draft') {
+			info.action = "create-bills";
+			info.totalcount = batchEm.findForBillingCount( [ batchid:o.objid,errstate:0] )?.count;
+			if( info.totalcount == 0 ) {
+				info.totalerrors = 	errorEm.find( [batchid: o.objid]).select("c:{COUNT(*)}").val();
+				info.totalprocessed = billEm.find( [batchid: o.objid ]).select("c:{COUNT(*)}").val();
+			}
+		}
+		else if(o.taskstate == 'for-approval') {
+			info.action = "update-bills";
+			info.totalcount = billEm.find([batchid: o.objid]).where("billed=0").select("c:{COUNT(*)}").val();
+		}
+		else if(o.taskstate == 'approved') {
+			info.action = "approve-bills";
+			info.totalcount = billEm.find([batchid: o.objid]).where("state='OPEN' AND billed=1").select("c:{COUNT(*)}").val();
+		}		
+		else {
+			info = null;
+		}
+		return info;
+	}
+
+
+	public void logError( def o, def ex  ) {
+		def err = [:];
+		err.account = [objid: o.acctid];
+		err.batchid = o.batchid;
+		err.billid = o.billid;
+		err.action = o.action;
+		err.errmsg = ex?.getCause()?.message;
+		errorEm.create( err );
+	}
+
+	@ProxyMethod
+	public def processBatch( def o ) {
+		int batch_process_size = 20;
+		def sz = var.waterworks_batch_process_size;
+		if( sz !=null ) {
+			batch_process_size = sz.toInteger();
+		}
+
+		def items = null;
+		if(o.action=="create-bills") {
+			def p = [:];
+			p.batchid = o.batchid;
+			p.start = 0;
+			p.limit = batch_process_size;
+			items = batchEm.getAccountsForBilling( p );
+			items?.each {
+				//check if bill already exists. do not create it
+				try {
+					def vv = [acctid: it.objid, year:it.year,month:it.month,scheduleid:it.scheduleid, batchid: o.batchid];
+					vv.billnoformat = o.batchid + "-[%05d]"; 
+					vv.txnmode = "ONLINE";
+					billSvc.createBill( vv );
+				}
+				catch(ex) {
+					logError( [acctid: it.objid, batchid: o.batchid, action: o.action], ex );
+				}
+			}
+		}
+		else if( o.action == "update-bills") {
+			items = billEm.find([batchid: o.batchid]).where("billed=0").select("objid").limit(batch_process_size).list();
+			items?.each{ 
+				try {
+					billSvc.addCurrentBillItems( [objid: it.objid] );
+				}
+				catch(ex) {
+					logError( [billid: it.objid, acctid:it.acctid, batchid: o.batchid, action: o.action ], ex );
+				}
+			}
+		}
+		else if( o.action == "approve-bills") {
+			items = billEm.find([batchid: o.batchid]).where(" state='OPEN' AND billed=1 ").select("objid").limit(batch_process_size).list();
+			items.each {
+				try {
+					billSvc.approve( [objid: it.objid] ); 
+				} 
+				catch(ex) {
+					logError( [billid: it.objid, acctid: it.acctid, batchid: o.batchid, action: o.action ], ex );
+				}
+			}
+		}
+		//items size
+		if( !items ) {
+			return [count: 0];
+		}
+		else {
+			return [count: items.size()];		
+		}
+	}
+
+	@ProxyMethod
+	public def resolveError( def o ) {
+		if(!o.errorid) throw new Exception("errorid is required in WaterworksBatchBillingService.resolveError")
+		def err = errorEm.find( [objid: o.errorid ] ).first();
+		if(!err) throw new Exception("Error not found. Please pass the correct errid " + err.objid );
+		def res = [status:"OK", message:"OK"];
+		try {
+			if(err.action=="create-bills") {
+				def batch = batchEm.find( [objid: err.batchid ] ).first();
+				def vv = [acctid: err.acctid, year:batch.year,month:batch.month, batchid: batch.objid];
+				vv.billnoformat = batch.objid + "-[%05d]"; 
+				vv.txnmode = "ONLINE";
+				billSvc.createBill( vv );
+			}
+			else if( err.action=="update-bills") {
+				billSvc.addCurrentBillItems( [objid: it.objid] );
+			}
+			else if( err.action == "approve-bills") {
+				billSvc.approve( [objid: it.objid] ); 
+			}
+			else {
+				res.status = "ERROR";
+				res.message = "Action " + err.action + " not handled";
+			}
+		}
+		catch(e) {
+			res.status = "ERROR";
+			res.message = e.message;			
+			errorEm.find( [objid: err.objid ] ).update( [errmsg: e.message] );
+		}
+		if( res.status == "OK") {
+			errorEm.find( [objid: o.errorid ] ).delete();
+		}
+		return res;
+	}
+
+	@ProxyMethod
+	public def clearErrors(def o) {
+		if(!o.objid) throw new Exception("objid is required in  WaterworksBatchBillingService.clearErrors");
+		errorEm.find( [batchid: o.objid ] ).delete();
+	}
+
+	@ProxyMethod
+	public def rejoinBatch( def o ) {
+		if( !o.billid ) throw new Exception("billid is required in WaterworksBatchBillingService.rejoinBatch");
+		def bill = billEm.find( [objid: o.billid ] ).first();
+		def acct = vwAcctEm.find( [objid: bill.acctid] ).first();
+		if( acct.billid != bill.objid )
+			throw new Exception("Account not found having this bill as current. Please check if this is the current bill");
+		def batch = vwBatchEm.find( [subareaid: acct.subareaid] ).orderBy(" year DESC, month DESC ").first();
+		if( !batch ) throw new Exception("Batch does not exist for this subarea");
+		
+		if(batch.year!=bill.year && batch.month!=bill.month)
+			throw new Exception("The bill's period does not match the batch billing period");
+
+		//allow rejoin batch anytime provided the year and month is the same as the batch.
+		/*
+		if(batch.task.state?.toLowerCase() == 'mobile-reading' )
+			throw new Exception("This bill is currently for mobile reading. It cannot be joined at this time");	
+		if( bill.state == 'OPEN' && !batch.task.state?.toLowerCase().matches('draft|for-reading') ) 
+			throw new Exception("This bill (open) can only be joined to batch that is in draft or for-reading state");		
+
+		if( bill.state == 'POSTED' && batch.task.state?.toLowerCase() != 'approved' ) 
+			throw new Exception("This bill (posted) can only be joined to batch that is in approved state ");
+		*/	
+
+		billEm.find([objid: bill.objid]).update([batchid: batch.objid]);
+
+		//include in batch in next time
+		acctEm.find( [objid: acct.objid]).update( [excludeinbatch:0] );
+
+		return [batchid: batch.objid];			
+	}
+
+	@ProxyMethod
+	public def excludeInBatch( def o ) {
+		if(!o.acctid) throw new Exception("acctid is required in WaterworksBatchBillingService.excludeInBatch");
+		acctEm.find( [objid: o.acctid ]).update( [excludeinbatch: 1]);
+	}
+
+
+} 

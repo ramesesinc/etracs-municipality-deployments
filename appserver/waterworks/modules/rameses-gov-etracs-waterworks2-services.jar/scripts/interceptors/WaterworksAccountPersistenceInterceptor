@@ -1,0 +1,103 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class WaterworksAccountPersistenceInterceptor{
+	
+    @Service("ControlnoGeneratorService")
+    def controlNoSvc;
+
+   	@Service('Var')
+	def var;	
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext('waterworks_meter') 
+	def wmeter;
+
+	@DataContext('waterworks_credit') 
+	def creditEm;
+
+	@DataContext('waterworks_account_info') 
+	def acctInfoEm;
+
+	@DataContext('waterworks_account_attribute') 
+	def attributeEm;
+
+	@DataContext('waterworks_bill') 
+	def billEm;
+
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'waterworks_account'}")
+	public void beforeCreate(def evt) {
+		def o  = evt.args[0];
+		o.objid = "WACCT" + new UID();
+		o.excludeinbatch = 0;
+        if( !o.acctno ) {
+        	def pattern = var.waterworks_acctno_format;
+        	if(!pattern) throw new Exception("Please specify pattern in sys_variable - waterworks_account_no_format" );
+			o.acctno = controlNoSvc.getNextNo( pattern );
+        }  
+        o.state = 'DRAFT';
+        def info = [:];
+        info.putAll( o );
+        acctInfoEm.create( info );
+        o.acctinfoid = info.objid;
+	}
+
+	@Before(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'waterworks_account'  }")
+	public void beforeUpdate(def evt) {
+		def o = evt.args[0];
+
+		if( o.meter?.objid == null ) o.meterid = null;
+		if( o.stubout?.objid == null ) o.stuboutid = null;
+
+        def info = [:];
+        info.putAll( o );
+        info.objid = o.acctinfoid;
+		acctInfoEm.find([objid: o.acctinfoid ]).update( info );		
+	}
+
+	@After(pattern="PersistenceService.(create|update)", eval="#{args[0]._schemaname == 'waterworks_account'  }")
+	public void afterSave(def evt) {
+		def o = evt.args[0];
+		def res = evt.result;
+		def acctinfoid = o.acctinfoid;
+
+		def meters = wmeter.find([currentacctid:acctinfoid]).list();
+		meters.each {
+			wmeter.find( [objid: it.objid ] ).update( [currentacctid: '{NULL}'] );
+		}
+		//throw new Exception("fired " + o.meter.objid + " acctinfo " + acctinfoid);
+		if(o.meter?.objid ) {
+			def u = [:];
+			u.currentacctid = res.objid;
+			u.state = o.meter.state;
+			wmeter.find( [objid: o.meter.objid ] ).update( u ); 
+		}
+		//also insert attributes for indexing;
+		attributeEm.find( [parentid: res.objid ] ).delete();
+		res.attributes?.each {
+			def m = [:];
+			m.objid = res.objid + "-" + it;
+			m.parentid = res.objid;
+			m.attribute = [name: it];
+			attributeEm.create( m );
+		}
+
+	}
+
+	@After(pattern="PersistenceService.read", eval="#{args[0]._schemaname == 'vw_waterworks_account'}")
+	public void afterRead(def evt) {
+		def o = evt.result;
+		def amt = creditEm.find( [acctid: o.objid ]).select("amount:{SUM(dr-cr)}").val();
+		o.totalcredits = 0;
+		if(amt!=null) {
+			o.totalcredits = amt;
+		}	
+	}
+
+
+
+
+}

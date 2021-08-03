@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="11.5.1">
+  <zoom_level>10</zoom_level>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>90</x>
+      <y>20</y>
+      <w>210</w>
+      <h>300</h>
+    </coordinates>
+    <panel_attributes>wm_batch
+--
+objid : also the batchno
+subareaid
+subareacode
+areacode
+year : integer
+month : integer
+fromdate : Date
+todate : Date
+duedate : Date
+discdate : Date
+readerid
+readername
+recordcount: integer 
+stubouts: List
+
+
+
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>480</x>
+      <y>40</y>
+      <w>210</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>wm_stubout
+--
+objid
+subareaid
+code
+description
+barangay
+lng
+lat
+
+
+
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>270</x>
+      <y>40</y>
+      <w>230</w>
+      <h>70</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+subareaid=subareaid</panel_attributes>
+    <additional_attributes>30;50;210;50</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>140</x>
+      <y>360</y>
+      <w>240</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>wm_rate
+--
+rulename: String
+params: list of strings
+condition: String
+action: String
+salience: integer
+
+
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>270</x>
+      <y>120</y>
+      <w>230</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;&lt;&lt;-
+stubouts</panel_attributes>
+    <additional_attributes>30;140;210;30</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>450</x>
+      <y>230</y>
+      <w>370</w>
+      <h>490</h>
+    </coordinates>
+    <panel_attributes>wm_account
+--
+objid
+state: integer 0=forreading 1=posted  2=printed
+batchid
+billno
+seqno: integer
+acctno
+acctname
+classification
+address
+prevreading: integer
+reading: integer (current reading)
+meterserialno
+meterbrand
+metersize
+metercapacity : integer
+volume : integer
+amount : decimal
+balanceforward: decimal
+otherfees: decimal
+attributes: string
+lng : float
+lat : float
+photo: bytes
+remarks
+readingdate: Date
+billprintdate : Date
+stuboutid
+
+
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>270</x>
+      <y>130</y>
+      <w>200</w>
+      <h>190</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+objid=batchid</panel_attributes>
+    <additional_attributes>30;30;90;160;180;170</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>660</x>
+      <y>90</y>
+      <w>318</w>
+      <h>250</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+objid=stuboutid</panel_attributes>
+    <additional_attributes>30;30;220;40;250;190;160;230</additional_attributes>
+  </element>
+</diagram>

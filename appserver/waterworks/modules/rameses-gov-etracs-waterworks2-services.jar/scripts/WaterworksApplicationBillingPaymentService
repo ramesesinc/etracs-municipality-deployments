@@ -1,0 +1,98 @@
+import com.rameses.annotations.*;
+import com.rameses.rules.common.*;
+import waterworks.facts.*;
+
+class WaterworksApplicationBillingPaymentService  {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@DataContext("waterworks_application")
+    def appEm;
+
+    @DataContext("waterworks_application_fee")
+    def appFeeEm;
+
+ 	@DataContext("waterworks_itemaccount_mapping")
+    def itemMappingEm;
+
+	@DataContext("waterworks_payment")
+	def paymentEm;
+
+	@ProxyMethod
+	public def findTxn( def o ) {
+        def r = appEm.find([appno: o.id]).first();
+        return (( r ) ? "application" : null);
+	}
+
+	@ProxyMethod
+	public def getBilling( def o ) {
+        def app = appEm.find([appno: o.id]).first();
+        if( app.task.state !="payment")
+            throw new Exception("This application is not yet for payment");
+        def acct = app.account;    
+        def rct = [:];
+        rct.payer = acct.owner;
+        rct.paidby = acct.acctname + " (App No." + app.appno + ")";
+        rct.paidbyaddress = acct.address?.text;
+        rct.pmttxntype = "application";
+        rct.items = [];
+        rct.appid = app.objid;
+        rct.billitems = appFeeEm.find([appid: app.objid]).list();
+        rct.billitems.each {
+            def mi = itemMappingEm.find([parentid: it.itemid]).first();
+            if(!mi) throw new Exception("There is no item mapping for " + it.itemid);
+            def pt = [:];
+            pt.item = [objid:mi.objid, code:mi.code, title:mi.title, fund: mi.fund];
+            pt.amount = it.amount;
+            rct.items << pt;
+        }
+        return rct;
+	}
+
+	@ProxyMethod
+	public void postPayment( def rct ) {
+		def pmt = [:];
+		pmt.refno = rct.receiptno;
+		pmt.reftype = "cashreceipt"
+		pmt.refid = rct.objid;
+		pmt.refdate = rct.receiptdate;
+		pmt.discount = 0;
+		pmt.amount = rct.amount;
+		pmt.voided = 0;
+		pmt.txnmode = rct.txnmode;
+		pmt.remarks = rct.remarks;
+		pmt.acctid = rct.acctid;
+		pmt.appid = rct.appid;
+		pmt.pmttxntype = rct.pmttxntype;
+		pmt.txndate = dateSvc.getServerDate();
+		pmt = paymentEm.create( pmt );
+		appFeeEm.find( [appid: rct.appid ] ).update( [amtpaid: "{amount}"] );
+		//update also workflow to move it from payment
+		def wf = [:];
+		wf.processname = 'waterworks_application';
+		wf.refid = rct.appid;
+		wf.startdate = dateSvc.serverDate;
+		wf.action = "post-payment";
+		taskSvc.signal( wf );		
+	}
+
+	@ProxyMethod
+	public void voidPayment(def o) {
+        def pmt = paymentEm.find( [objid: o.pmtid  ]).first();
+        if(!pmt) throw new Exception("Payment does not exist");
+		paymentEm.find( [objid: pmt.objid] ).update( [voided: 1 ] );
+		appFeeEm.find( [appid: pmt.appid ] ).update( [amtpaid: 0] );
+		def wf = [:];
+		wf.processname = 'waterworks_application';
+		wf.refid = pmt.appid;
+		wf.startdate = dateSvc.serverDate;
+		wf.action = "void-payment";
+		taskSvc.signal( wf );	
+	}
+
+
+}

@@ -1,0 +1,38 @@
+<schema>
+	<element tablename="vw_waterworks_batch_billing">
+		<field name="objid" primary="true"/> 
+		<field name="batchno" searchable="true"/>
+		<field name="state" />
+		<field name="subareaid" />
+		<field name="dtposted" />
+		<field name="reader_objid" />
+		<field name="reader_name" />
+		<field name="readingdate" />
+
+		<field name="scheduleid" />
+		<field name="year" indexed="true"/>
+		<field name="month" />
+		<field name="monthname" indexed="true"/>
+
+		<field name="subarea_code" searchable="true"/> 
+		<field name="subarea_barangay_name" searchable="true"/> 
+		<field name="area_code" /> 
+
+		<field name="period_fromdate" type="date"/>
+		<field name="period_todate" type="date"/>
+		<field name="period_readingdate" type="date"/>
+		<field name="period_readingenddate" type="date"/>
+		<field name="period_billdate" type="date"/>
+		<field name="period_billingenddate" type="date"/>
+		<field name="period_discdate" type="date"/>
+		<field name="period_duedate" type="date"/>
+		<field name="period_billexpirydate" type="date"/>	
+
+		<complex name="task" ref="waterworks_batch_billing_task" jointype="many-to-one" required="true">
+			<key field="taskid" target="taskid" />
+		</complex>
+
+	</element>
+</schema>
+
+

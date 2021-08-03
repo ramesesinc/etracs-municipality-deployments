@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vw_waterworks_compromise_billitem">
+		<field name="objid" primary="true" />
+		<field name="parentid" />
+		<field name="billitemid" />
+		<field name="amount" />
+		<field name="amtpaid" />
+		<field name="year" />
+		<field name="month" />
+		<field name="monthname" expr="MONTH_ARRAY(month)"/>
+		<field name="item_title" />
+	</element>
+
+</schema>

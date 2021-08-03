@@ -1,0 +1,21 @@
+<schema>
+
+	<element tablename="waterworks_compromise_fee">
+		<field name="objid" primary="true"  prefix="WAF"/>
+		<field name="parentid" required="true"/> 
+		<complex name="item" ref="waterworks_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>	
+		<field name="particulars" />
+		<field name="amount" required="true"/>
+		<field name="amtpaid" required="true"/>
+		<field name="balance" expr="amount-amtpaid"/>
+		<field name="duedate" type="date" />
+		<field name="itemtype"  />		
+		<field name="billid"  />
+		<!-- DRAFT or ACTIVE-->
+		<field name="state"  required="true"/>
+
+	</element>
+
+</schema>

@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="waterworks_schedule_group">
+		<field name="objid" primary="true" visible="true" caption="ID"/>
+		<field name="description" caption="Description"/>
+	</element>
+</schema>				

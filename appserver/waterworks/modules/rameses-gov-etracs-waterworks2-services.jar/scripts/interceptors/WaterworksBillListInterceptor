@@ -1,0 +1,48 @@
+import com.rameses.annotations.*;
+
+class WaterworksBillListInterceptor{
+	
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'vw_waterworks_bill'}")
+	public void getNodeList(def evt) {
+		def result = evt.result;
+		result << [ title: 'Posted', id:'posted'];		
+		result << [ title: 'Open', id:'open'];
+		result << [ title: 'Closed', id:'closed'];		
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'vw_waterworks_bill'}")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.id ) return;
+
+		def str = '';
+		def m = [:];
+		def status = o.node.id;
+
+		switch( status ) {
+			case 'open':
+				str = "state = 'OPEN' ";
+				break;
+
+			case 'posted': 	
+				str = "state = 'POSTED' ";
+				break;
+
+			case 'closed':
+				str = "state = 'CLOSED' ";
+				break;
+
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+		o.select += ",status:{'" + status + "'}";
+	}
+
+}

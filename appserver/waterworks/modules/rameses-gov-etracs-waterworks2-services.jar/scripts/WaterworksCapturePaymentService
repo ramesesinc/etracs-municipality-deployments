@@ -1,0 +1,53 @@
+import com.rameses.annotations.*;
+import com.rameses.rules.common.*;
+import waterworks.facts.*;
+
+class WaterworksCapturePaymentService  {
+	
+	@Service("WaterworksApplicationBillingPaymentService")
+    def appBillPmtSvc;
+
+    @Service("WaterworksCompromiseBillingPaymentService")
+    def compBillPmtSvc;
+
+    @Service("WaterworksRegularBillingPaymentService")
+    def regBillSvc;
+
+	@DataContext("waterworks_payment")
+	def paymentEm;
+
+	@ProxyMethod
+	public def getPaymentItems( def o ) {
+		if(o.pmttxntype == "billing") {
+			return regBillSvc.getPaymentItems( o );		
+		}
+		throw new Exception("pmt txntype " + o.pmttxntype + " not supported in WaterworksCapturePaymentService.getPaymentItems");
+	}
+
+	@ProxyMethod
+	public void postPayment( def o ) {
+		if(o.pmttxntype == "billing") {
+			regBillSvc.postPayment( o );		
+		}
+		else {
+			throw new Exception("pmt txntype " + o.pmttxntype + " not supported in WaterworksCapturePaymentService.postPayment");	
+		}
+	} 
+
+	//This is a temporary method. 
+	@ProxyMethod
+	public def cancelPayment( def param ) {
+
+		if(!param.pmttxntype ) throw new Exception("Please specify pmttxntype in cancelPayment");
+		def pmt = paymentEm.find( [objid: param.refid] ).select("objid,txnmode").first();
+		if( pmt.txnmode == 'ONLINE' ) throw new Exception("You cannot cancel a payment made online. Use void instead");
+
+		if( param.pmttxntype == "billing" ) {
+			regBillSvc.voidPayment( [ pmtid: pmt.objid ] );
+		}
+
+		paymentEm.find( [objid: param.refid] ).delete();
+	}
+
+
+}

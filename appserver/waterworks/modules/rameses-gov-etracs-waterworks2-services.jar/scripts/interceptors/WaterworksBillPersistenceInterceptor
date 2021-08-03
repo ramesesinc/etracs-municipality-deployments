@@ -1,0 +1,22 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+
+class WaterworksBillPersistenceInterceptor {
+	
+	@Service("WaterworksScheduleService")
+	def skedSvc;
+
+	//load period when opening the batch
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'vw_waterworks_bill'}")
+	void afterRead( evt ) {
+		def p = evt.result;
+		if(!p.period?.duedate && p.year && p.month) {
+			def pd = skedSvc.getSchedule( [scheduleid: p.scheduleid, year: p.year, month: p.month ] );
+			pd.remove("year");
+			pd.remove("month");
+			pd.remove("objid");			
+			p.period = pd;
+		}
+	}
+
+} 

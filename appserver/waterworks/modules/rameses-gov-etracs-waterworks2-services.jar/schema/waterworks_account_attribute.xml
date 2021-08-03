@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="waterworks_account_attribute">
+		<field name="objid" primary="true"  prefix="WACCATTR"/>
+		<field name="parentid"/>
+		<field name="attribute_name"/>
+	</element>
+</schema>

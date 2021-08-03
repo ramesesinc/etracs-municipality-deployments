@@ -1,0 +1,17 @@
+<schema>
+	<element tablename="waterworks_credit">
+		<field name="objid" primary="true" prefix="WCRED"/>
+
+		<!-- link to ledger account -->
+		<field name="acctid" />
+
+		<field name="dr" required="true" type="decimal" caption="Dr"/>
+		<field name="cr" required="true" type="decimal" caption="Cr"/>
+		<field name="remarks" caption="Remarks"/>
+
+		<complex name="paymentref" ref="waterworks_payment" jointype="many-to-one" required="false">
+			<key field="paymentrefid" target="objid" />
+		</complex>
+				
+	</element>
+</schema>

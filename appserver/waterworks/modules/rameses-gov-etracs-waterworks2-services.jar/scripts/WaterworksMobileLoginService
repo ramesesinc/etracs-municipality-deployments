@@ -1,0 +1,32 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+import com.rameses.functions.*;
+import java.text.*;
+
+class WaterworksLoginService {
+
+	@Service(value="AdminAuthService", connection="local-admin-server")
+	def adminSvc;
+
+	@Service(value="UserRoleService", connection="local-admin-server")
+	def roleSvc;
+
+	@ProxyMethod
+	public def login( def o ) {
+		def pwd = Encoder.md5.encode( o.pwd, o.username );
+		def result = adminSvc.authenticate(o.username, pwd);
+
+		def roles = roleSvc.getRolesByUser( [userid: result.userid ] );
+		def m = [:];
+		m.userid = result.userid;
+
+
+		def reader = roles.find{ it.domain == "WATERWORKS" && it.role=="READER" };
+		if(!reader) return [ status: 'ERR', message: "User does not have a READER role" ];
+
+		return m;
+	}
+
+
+}

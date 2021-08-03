@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="waterworks_reconnection">
+		<field name="objid" primary="true" prefix="WDISCON" />
+		<field name="controlno" required="true" />
+		<field name="dtcreated" required="true" />
+		<field name="acctid" required="true" />
+		<field name="acctinfoid" required="true" />
+		<field name="taskid" />
+	</element>
+</schema>

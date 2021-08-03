@@ -1,0 +1,85 @@
+<schema>
+	<element tablename="vw_waterworks_bill">
+		<field name="objid" primary="true"/> 
+		<field name="billno" searchable="true" caption="Bill No"/> 
+		<field name="billrefno" searchable="true"/> 
+		<field name="state" /> 
+		<field name="txnmode" /> 
+
+		<field name="batchid" /> 
+		<field name="acctid" /> 
+		<field name="acctinfoid" /> 
+		<field name="acctid" /> 
+
+		<field name="billdate" type="date" /> 
+		<!-- date when the bill was prepared -->
+		<field name="validitydate" /> 
+		<field name="expirydate" /> 
+
+		<field name="acctno" searchable="true" caption="Acct No"/> 
+		<field name="acctname" searchable="true" caption="Acct Name"/> 
+		<field name="acctstate" /> 
+		<field name="address_text" /> 
+		<field name="classificationid" /> 
+		<field name="seqno" caption="Seq No"/> 
+
+		<field name="subarea_code" /> 
+		<field name="subarea_schedulegroupid" /> 
+		<field name="subarea_barangay_name" /> 
+		<field name="area_code" /> 
+
+		<field name="balanceforward" type="decimal"/> 
+
+		<complex name="stubout" ref="waterworks_stubout" jointype="many-to-one" required="false">
+			<key field="stuboutid" target="objid"/> 
+		</complex>
+		
+		<complex name="meter" ref="waterworks_meter" jointype="many-to-one"  required="false" 
+			includefields="objid,serialno,brand,capacity,size.*">
+			<key field="meterid" target="objid"/>
+		</complex>
+		<field name="meterstate" />
+
+		<field name="scheduleid" />
+		<field name="year" />
+		<field name="month" />
+		<field name="monthname" />
+
+		<field name="period_fromdate" type="date"/>
+		<field name="period_todate" type="date"/>
+		<field name="period_readingdate" type="date"/>
+		<field name="period_readingenddate" type="date"/>
+		<field name="period_billdate" type="date"/>
+		<field name="period_billingenddate" type="date"/>
+		<field name="period_discdate" type="date"/>
+		<field name="period_duedate" type="date"/>
+		<field name="period_billexpirydate" type="date"/>
+
+		<complex name="consumption" ref="vw_waterworks_bill_consumption" jointype="many-to-one" required="false">
+			<key field="consumptionid" target="objid"/> 
+		</complex>
+
+		<field name="remarks" /> 	
+		<field name="createdby_objid" /> 	
+		<field name="createdby_name" /> 	
+
+		<field name="printed" type="integer"/> 
+		<field name="billed"  type="integer"/> 
+		<field name="initial"  type="integer"/> 
+		<field name="step" type="integer"/> 
+
+		<field name="totalcredits" type="decimal" />
+		<field name="totalprevunpaid" type="decimal" />
+		<field name="totalbillunpaid" type="decimal" />
+		<field name="billamount" type="decimal" />
+		<field name="totalsurcharge" type="decimal" />
+		<field name="totalpayment" type="decimal" />
+		<field name="totaldiscount" type="decimal" />
+
+		<field name="totalunpaid" expr="(totalprevunpaid+totalbillunpaid)" type="decimal" />
+		<field name="totalamtdue" expr="(balanceforward+billamount+totalsurcharge-totalpayment-totaldiscount)" type="decimal" caption="Total Due"/>
+
+	</element>
+</schema>
+
+

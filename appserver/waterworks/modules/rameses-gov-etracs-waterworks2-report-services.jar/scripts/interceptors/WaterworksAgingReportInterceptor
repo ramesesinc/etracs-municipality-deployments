@@ -1,0 +1,27 @@
+import com.rameses.annotations.*; 
+
+class WaterworksAgingReportInterceptor {
+
+	@ActiveDB('waterworks_aging_report')
+	def report_db; 
+
+	@Service('WaterworksScheduleService')
+	def skedSvc; 
+
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'waterworks_aging_report' }")
+	public void afterGetData( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+
+		//load first all billitems that do not have billitems nor do they have schedules
+		def billitems = report_db.getBillItemsWithoutSchedule();
+		billitems.each {
+			skedSvc.getSchedule(it);
+		}
+
+		def list = report_db.getReportData([:])
+		result.data = [items:list];
+	}
+
+}

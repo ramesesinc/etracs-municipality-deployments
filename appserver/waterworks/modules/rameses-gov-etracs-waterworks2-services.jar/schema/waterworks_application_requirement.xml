@@ -1,0 +1,11 @@
+<schema>
+
+	<element tablename="waterworks_application_requirement">
+		<field name="objid" primary="true"  prefix="WNCR"/>
+		<field name="appid" required="true"/> 
+		<field name="typeid" required="true"/>
+		<field name="remarks" />
+		<field name="state" />		
+	</element>
+
+</schema>

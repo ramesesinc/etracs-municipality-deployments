@@ -1,0 +1,55 @@
+import com.rameses.annotations.*;
+
+class WaterworksPaymentService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterworksApplicationBillingPaymentService")
+    def appBillPmtSvc;
+
+    @Service("WaterworksCompromiseBillingPaymentService")
+    def compBillPmtSvc;
+
+    @Service("WaterworksRegularBillingPaymentService")
+    def regBillSvc;
+
+    @DataContext("waterworks_payment")
+    def paymentEm;
+
+	@ProxyMethod 
+	public def postPayment( def param ) {
+		if( param.pmttxntype == "application" ) {
+			appBillPmtSvc.postPayment( param );
+		}
+		else if( param.pmttxntype == "compromise" ) {
+			compBillPmtSvc.postPayment( param );
+		}
+		else if( param.billid ) {
+			regBillSvc.postPayment( param );
+		}
+		else {
+			throw new Exception("Non bill payment not yet supported");
+		}
+	}
+
+	@ProxyMethod 
+	public def voidPayment( param ) {
+		def refid = param.receipt?.objid;
+		if( refid == null) refid = param.refid;
+		def pmt = paymentEm.find( [refid: refid ] ).select("objid,pmttxntype").first();
+		if( !pmt) throw new Exception("WaterworksPaymentService.voidPayment error. payment entry not found");
+
+		if( pmt.pmttxntype == "application" ) {
+			appBillPmtSvc.voidPayment( [pmtid: pmt.objid ] );	
+		}
+		else if( pmt.pmttxntype == "compromise") {
+			compBillPmtSvc.voidPayment( [pmtid: pmt.objid ] );
+		}
+		else {
+			regBillSvc.voidPayment( [pmtid: pmt.objid ] );
+		}
+	}
+
+
+}

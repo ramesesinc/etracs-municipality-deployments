@@ -1,0 +1,34 @@
+<schema>
+	<element tablename="waterworks_payment" autopost="true">
+		<field name="objid" primary="true" prefix="WP"/>
+		<field name="acctid" />		
+		<field name="refno" required="true" caption="Ref No"/>
+		<field name="reftype" required="true" caption="Ref Type"/>
+		<!-- soft link to refid like cashreceipt -->
+		<field name="refid" />
+		<field name="refdate" required="true" caption="Ref Date"/>
+		<field name="amount" type="decimal" required="true"/>
+		<field name="voided" required="true" caption="Voided"/>
+		<field name="txnmode" required="true" defaultValue="CAPTURE"/>
+
+		<field name="discount" type="decimal" required="true" caption="Discount"/>
+
+		<complex name="items" ref="waterworks_payment_item" jointype="one-to-many" required="false">
+			<key field="objid" target="parentid"/>
+		</complex>	
+		<field name="remarks" />
+
+		<!-- if payment made for bill -->
+		<field name="billid" />
+
+		<!-- if payment made for application -->		
+		<field name="appid" />
+
+		<!-- if payment made for compromise -->		
+		<field name="compromiseid" />
+
+		<!-- refer to either billing,application or compromise -->
+		<field name="pmttxntype" required="true"/>
+		<field name="txndate"/>
+	</element>
+</schema>

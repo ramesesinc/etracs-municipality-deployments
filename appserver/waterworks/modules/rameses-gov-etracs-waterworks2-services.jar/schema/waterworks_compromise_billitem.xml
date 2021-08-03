@@ -1,0 +1,9 @@
+<schema>
+	<element tablename="waterworks_compromise_billitem">
+		<field name="objid" primary="true" prefix="WCOMPBITM" />
+		<field name="parentid" required="true"/>
+		<field name="billitemid" required="true"/>
+		<field name="amount" type="decimal"/>
+		<field name="amtpaid" type="decimal"/>
+	</element>
+</schema>

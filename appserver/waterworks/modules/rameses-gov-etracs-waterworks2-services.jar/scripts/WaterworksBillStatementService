@@ -1,0 +1,159 @@
+import com.rameses.annotations.*;
+
+class WaterworksBillStatementService {
+
+	@DataContext("vw_waterworks_bill")
+	def vwBillEm;
+
+	@DataContext("waterworks_billitem")
+	def billItemEm;
+
+	@DataContext("waterworks_payment")
+	def pmtEm;
+
+	@Service("WaterworksBarcodeFormatService")
+	def barcodeSvc;
+
+	@ProxyMethod
+	public def getBillDetails( def o ) {
+		if(! o.objid ) throw new Exception("objid of bill is required in WaterworksBillService.getBillDetails");		
+		def bill = vwBillEm.find( [objid: o.objid] ).first();
+
+		def details = [];
+
+		//if expanded is requested, it will display all 
+		def expanded = o.expanded;
+		if(expanded == null) expanded = false;
+
+		if( expanded == true ) {
+			if( bill.balanceforward < 0 ) {
+				def bal = [ particulars: "Advance Payment" ];
+				bal.dr = 0;
+				bal.cr = Math.abs( bill.balanceforward );
+				bal.txndate = bill.period.fromdate;
+				bal.group = "Previous";
+				details <<  bal;
+			}
+			else {
+				def prevItems = billItemEm.getPreviousBillItems( [acctid: bill.acctid, yearmonth: ((bill.year*12)+bill.month) ]);
+				prevItems.each {
+					def bal = [ particulars: it.item.title + " " + it.year + " " + it.monthname ];
+					bal.dr = it.amount;
+					bal.cr = it.amtpaid;
+					bal.txndate = it.txndate;
+					bal.group = "Previous";
+					details << bal;
+				}			
+			}
+		}
+		else {
+			def bal = [ particulars: "Balance Forward" ];
+			if( bill.balanceforward < 0 ) {
+				bal.dr = 0;
+				bal.cr = Math.abs( bill.balanceforward );
+			}
+			else {
+				bal.dr =bill.balanceforward;			
+				bal.cr = 0;			
+			};
+			bal.txndate = bill.period.fromdate;
+			bal.group = "Previous";
+			details <<  bal;
+		}
+
+		def include_unposted = o.include_unposted;
+		if( include_unposted == null ) include_unposted = true;
+
+		if( include_unposted == true || bill.state.matches('POSTED|CLOSED')  ) {
+			def billItems = billItemEm.find( [billid: bill.objid ] ).orderBy("item.sortorder ASC").list();
+			billItems.each {
+				def m = [:];
+				m.particulars = it.item.title;
+				if( ((bill.year*12)+bill.month) != ((it.year*12)+it.month) ) {
+					m.particulars += " "+it.year +"-" +it.monthname+" ";
+				}
+				if( it.particulars  ) m.particulars += "("+it.particulars+")" ;
+				m.txndate = it.txndate;
+				if(!m.txndate) m.txndate = bill.billdate;
+				m.dr = it.amount;
+				m.cr = 0;
+				m.group = "Current";
+				details << m;
+			}
+		}
+
+		details = details.sort{ it.txndate };
+
+		//do not include non cash receipt payments
+		def pmtItems = pmtEm.find( [billid: bill.objid ] ).where("voided = 0 ").list();
+		pmtItems.each {
+			if(it.reftype == "cashreceipt" ) {
+				def m = [:];
+				m.txndate = it.txndate;
+				m.particulars = "Payment Ref No : " + it.refno;
+				m.dr = 0;
+				m.cr = it.amount;
+				m.group = "Current";
+				details << m;			
+			}
+			else if(it.reftype == "compromise"  ) {
+				def m = [:];
+				m.txndate = it.txndate;
+				m.particulars = "Compromise Agreement No : " + it.refno;
+				m.dr = 0;
+				m.cr = it.amount;
+				m.group = "Current";
+				details << m;
+			}
+
+			if( it.discount != 0 ) {
+				def m = [:];
+				m.txndate = it.txndate;
+				m.particulars = "Discount " + it.refno;
+				m.dr = 0;
+				m.cr = Math.abs(it.discount);
+				m.group = "Current";
+				details << m;
+			}
+		}
+		details = details.sort{ it.txndate };
+
+		def runbal = 0;
+		details.each {
+			runbal = runbal + it.dr - it.cr;
+			it.runbalance = runbal; 
+			it.amount = it.dr - it.cr;
+		}
+
+		def b = [:];
+		b.details = details;
+		b.totalamount = details.sum{ it.amount };
+		return b;
+	}
+
+	@ProxyMethod
+	public def getBillInfo( def o ) {
+		def bill = null;
+		if(o.objid) {
+			bill = vwBillEm.find([objid: o.objid]).first();
+			if(!bill) throw new Exception("Bill not found");
+		}
+		else if(o.acctid) {
+			bill = vwBillEm.find([acctid: o.acctid]).where( " year =:yr AND month = :mon ", [yr: o.year, mon: o.month] ).first();
+			if(!bill) throw new Exception("Bill not found");
+		}
+		else {
+			throw new Exception("Please pass objid or acctid in WaterworksBillStatementService.getBillInfo")
+		}
+		def bp = [objid: bill.objid, include_unposted: o.include_unposted, expanded: o.expanded ];
+		def det = getBillDetails( bp );
+		bill.details = det.details;
+		bill.totalamount = det.totalamount;		
+		bill.barcode = barcodeSvc.formatBillBarcode( bill.billno );
+
+		return bill;
+	}
+
+
+
+}

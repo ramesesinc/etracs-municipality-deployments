@@ -1,0 +1,25 @@
+<schema>
+	<element tablename="waterworks_meter">
+		<field name="objid" primary="true"  prefix="WM"/>
+		<field name="state" caption="Status" defaultValue="ACTIVE"/>
+		<field name="serialno" required="true" indexed="true" caption="Serial No." searchable="true"/>
+		<field name="brand" required="true" indexed="true" caption="Brand"/>
+		<field name="capacity" required="true" type="integer" caption="Capacity" />
+		<field name="reading"  type="integer" caption="Reading"/>
+
+		<complex name="size" ref="waterworks_metersize" jointype="many-to-one" required="false" 
+			includefields="objid,title">
+			<key field="sizeid" target="objid"/>
+		</complex>
+
+		<field name="currentacctid" />
+		
+		<complex name="account" ref="vw_waterworks_account" jointype="many-to-one" required="false"
+			includefields="objid,acctname,acctno,address.text">
+			<key field="currentacctid" target="objid"/>
+		</complex>
+		
+		<field name="stocktype" defaultValue="STOCK" required="true" caption="Stock Type" 
+			lov="WATERWORKS_METER_STOCKTYPE"/>
+	</element>
+</schema>

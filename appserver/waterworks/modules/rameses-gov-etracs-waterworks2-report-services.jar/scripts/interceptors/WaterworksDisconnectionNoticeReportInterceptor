@@ -1,0 +1,70 @@
+import com.rameses.annotations.*; 
+
+class WaterworksDisconnectionNoticeReportInterceptor {
+
+	@DataContext("vw_waterworks_account")
+	def vwAcctEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("vw_waterworks_bill")
+	def vwBillEm;
+
+	@DataContext("waterworks_billitem")
+	def billItemEm;
+
+	@DataContext("waterworks_payment")
+	def pmtEm;
+
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'waterworks_disconnection_notice' }")
+	public void afterGetReport( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+
+		def resultList = [];
+		def billList = vwBillEm.where("NOT(objid IS NULL)").list();
+
+		billList.each { bill->
+			def mm = [:];
+			mm.info = bill;
+
+			bill.lastname = bill.acctname;
+			bill.firstname = "";
+			bill.amtinwords = "ONE THOUSAND PESOS";
+			bill.duedate = bill.period.duedate;
+			bill.amtdue = bill.totalamtdue;
+			int idx = 1;
+			bill.dtfiled = dateSvc.getBasicServerDate();
+			mm.items = [];
+
+			billItemEm.find([acctid: bill.acctid]).list().each {
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];	
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];
+				mm.items << [ lineno: idx++, particulars: it.item?.title, amount: it.amount , amtpaid: 0];			
+			}
+			def pmtList = pmtEm.find( [acctid: bill.acctid]).where("reftype='cashreceipt'").list();
+			if(pmtList) {
+				pmtList.each {
+					mm.items << [ lineno:idx++, particulars: 'Payment ' + it.refno, amount: 0, amtpaid: it.amount ];
+					mm.items << [ lineno:idx++, particulars: 'Payment ' + it.refno, amount: 0, amtpaid: it.amount ];
+					mm.items << [ lineno:idx++, particulars: 'Payment ' + it.refno, amount: 0, amtpaid: it.amount ];	
+					mm.items << [ lineno:idx++, particulars: 'Payment ' + it.refno, amount: 0, amtpaid: it.amount ];
+					mm.items << [ lineno:idx++, particulars: 'Payment ' + it.refno, amount: 0, amtpaid: it.amount ];
+					mm.items << [ lineno:idx++, particulars: 'Payment ' + it.refno, amount: 0, amtpaid: it.amount ];				
+				}
+			}
+			resultList << mm;
+		}
+
+		result.data = resultList;
+	}
+
+}

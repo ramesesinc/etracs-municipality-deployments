@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="vw_waterworks_batch_billing_error">
+		<field name="objid" primary="true"/>
+		<field name="batchid" />
+		<field name="billid" />
+		<field name="acctid" />
+		<field name="action" />
+		<field name="errmsg" />
+		<field name="seqno" />
+		<field name="acctno" searchable="true"/>
+		<field name="acctname"  searchable="true"/>
+	</element>
+</schema>

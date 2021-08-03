@@ -1,0 +1,47 @@
+<schema>
+	<element tablename="waterworks_bill">
+		<field name="objid" primary="true"  prefix="WBILL"/>
+		<field name="state" />
+		<field name="batchid"/>
+		<field name="billno" required="true"/>
+		<field name="billrefno" />
+		<field name="billdate" type="date"/>
+		<field name="balanceforward" type="decimal" caption="Balance Forward"/>
+		<field name="acctid" required="true"/>
+		<field name="acctinfoid" required="true"/>
+		
+		<field name="expirydate" />
+		<field name="validitydate" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated"/>
+		<field name="remarks"/>
+
+		<!-- CAPTURE OR ONLINE -->
+		<field name="txnmode" required="true"/>
+		
+		<field name="year" />
+		<field name="month" />
+		<field name="scheduleid" />
+
+		<!-- flags -->
+		<field name="initial" type="integer"/>
+		<field name="billed"  type="integer"/>	
+		<field name="printed"  type="integer"/>
+
+		<field name="step"/>
+		<field name="consumptionid"/>
+
+		<field name="totalcredits" type="decimal" />
+		<field name="totalprevunpaid" type="decimal" />
+		<field name="totalbillunpaid" type="decimal" />
+		<field name="billamount" type="decimal" />
+		<field name="totalsurcharge" type="decimal" />
+		<field name="totalpayment" type="decimal" />
+		<field name="totaldiscount" type="decimal" />
+
+		<field name="totalunpaid" expr="(totalprevunpaid+totalbillunpaid)" type="decimal" />
+		<field name="totalamtdue" expr="(balanceforward+billamount+totalsurcharge-totalpayment-totaldiscount)" type="decimal" />
+
+	</element>
+</schema>

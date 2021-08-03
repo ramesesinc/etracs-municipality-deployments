@@ -1,0 +1,40 @@
+<schema>
+	<element tablename="waterworks_billitem">
+		<field name="objid" primary="true" prefix="WWLGR"/>
+		<field name="acctid" />
+		<field name="year" type="integer" required="true"/>
+		<field name="month" type="integer" required="true"/>
+ 
+		<complex name="item" ref="waterworks_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>	
+
+		<field name="billid" />
+		<field name="particulars" />
+
+		<!-- if system is 1 it is not editable -->
+		<field name="system" />
+		<field name="consumptionid" />
+
+		<!-- if billed this cannot be edited anymore. This means it is already included in the billing -->
+		<field name="billed" />
+
+		<field name="amount" type="decimal" caption="Amount" defaultValue="0"/>
+		<field name="amtpaid" type="decimal" caption="AmtPaid" defaultValue="0"/>
+		<field name="discount" type="decimal" caption="Discount" defaultValue="0"/>
+		<field name="balance" expr="amount-amtpaid" type="decimal" caption="Balance"/>
+		<field name="monthname" expr="MONTH_ARRAY( month )" caption="Month"/>
+
+		<field name="txndate" />
+
+		<!-- links to waterworks_recurringfee. optional -->
+		<field name="recurringfeeid" />
+
+		<!-- this is used for begin balance entries -->
+		<field name="refbillid" />
+
+		<complex name="bill" ref="waterworks_bill" jointype="many-to-one" required="false" includefields="billno">
+			<key field="billid" target="objid" />
+		</complex>	
+	</element>
+</schema>

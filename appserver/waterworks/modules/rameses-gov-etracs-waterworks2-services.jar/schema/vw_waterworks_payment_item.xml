@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vw_waterworks_payment_item">
+		<field name="objid" primary="true" />
+		<field name="year" />
+		<field name="month" />
+		<field name="monthname" expr="MONTH_ARRAY(month)" />
+
+		<field name="item_title" />
+		<field name="item_sortorder" />
+		<field name="amount" type="decimal"/>
+		<field name="discount" type="decimal"/>
+		<field name="pmtid" />
+	</element>
+</schema>

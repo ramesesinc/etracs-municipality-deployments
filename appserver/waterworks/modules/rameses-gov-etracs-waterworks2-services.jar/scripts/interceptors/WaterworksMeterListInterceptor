@@ -1,0 +1,47 @@
+import com.rameses.annotations.*;
+
+class WaterworksMeterListInterceptor{
+	
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'waterworks_meter'}")
+	public void getAcctNodeList(def evt) {
+		def result = evt.result;
+		result << [ title: 'All'];
+		result << [ title: 'Stock', id:'stock'];
+		result << [ title: 'Non-stock', id:'nonstock'];
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'waterworks_meter'}")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.id ) return;
+
+		def str = '';
+		def m = [:];
+		def status = o.node.id;
+
+		switch( status ) {
+			case 'stock':
+				str = " stocktype = 'STOCK' ";
+				break; 
+
+			case 'nonstock':
+				str = " stocktype = 'NONSTOCK' ";
+				break;
+
+			default:	
+				str = " 1=1 ";
+				break;
+		}
+
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+}

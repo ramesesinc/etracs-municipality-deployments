@@ -1,0 +1,69 @@
+import com.rameses.annotations.*;
+
+class WaterworksBeginBalanceService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterworksBillService")
+	def billSvc;
+
+ 	@DataContext("waterworks_billitem")
+	def billItemEm;
+
+ 	@DataContext("waterworks_bill")
+	def billEm;
+
+
+	@ProxyMethod
+	public def getBillBeginBalanceItems( def o ) {
+		if(!o.billid ) throw new Exception("Please pass the billid in getPreviousBillItems");
+		return billItemEm.getBillBeginBalanceItems( [refbillid: o.billid] );
+	}
+
+	@ProxyMethod
+	public def getBillBalanceForwardBillItems( def o ) {
+		if(!o.billid ) throw new Exception("Please pass the billid in getPreviousBillItems");
+		def bill = billEm.find( [objid: o.billid ]).first();
+		return billItemEm.getPreviousBillItems( [acctid: bill.acctid, yearmonth: ((bill.year*12)+bill.month) ]);
+	}
+
+	@ProxyMethod
+	public def getTestBalance( def o ) {
+		if(!o.acctid ) throw new Exception("Please pass the billid in getTestBalance");
+		if(!o.year ) throw new Exception("Please pass year in getTestBalance");
+		if(!o.month ) throw new Exception("Please pass month in getTestBalance");
+		return billItemEm.getPreviousBillItems( [acctid: o.acctid, yearmonth: ((o.year*12)+o.month) ])
+	}
+
+	@ProxyMethod
+	public def addItem( def o ) {
+		def b = billItemEm.find( [acctid: o.acctid, year: o.year, month: o.month, itemid: o.item.objid ] ).first();
+		if( b ) throw new Exception("Cannot add item because an entry already exists");
+		o.txndate = dateSvc.getServerDate();
+		billItemEm.create( o );
+		if( o.refbillid != null ) {
+			billSvc.updateBeginBalance( [objid:o.refbillid] );
+		}
+	}
+
+	@ProxyMethod
+	public def updateItem( def o ) {
+		billItemEm.find([objid: o.objid]).update( o );
+		if( o.refbillid != null ) {
+			billSvc.updateBeginBalance( [objid: o.refbillid] );
+		}		
+	}
+
+	@ProxyMethod
+	public def removeItem( def o ) {
+		def b = billItemEm.find([objid: o.objid]).first();
+		if( b.amtpaid > 0 ) throw new Exception("Cannot remove item because it is already paid");
+		billItemEm.find([objid: o.objid]).delete();
+		if( o.refbillid != null ) {
+			billSvc.updateBeginBalance( [objid: o.refbillid] );
+		}	
+	}
+
+
+}

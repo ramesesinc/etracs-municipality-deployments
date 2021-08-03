@@ -1,0 +1,103 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+
+class WaterworksBatchBillingTaskInterceptor {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("waterworks_subarea")
+	def subareaEm;
+
+	@DataContext("waterworks_batch_billing")
+	def batchEm;
+
+	@DataContext("waterworks_batch_billing_task")
+	def taskEm;
+
+	@DataContext("waterworks_bill")
+	def billEm;
+
+	@DataContext("vw_waterworks_bill")
+	def vwBillEm;
+
+	@DataContext("vw_waterworks_consumption")
+	def vwConsumptionEm;
+
+	@Service("WaterworksScheduleService")
+	def skedSvc;
+
+	@DataContext("waterworks_batch_billing_error")
+	def errorEm;
+
+	//when removing a batch, reverse all transactions to its previous state
+	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'waterworks_batch_billing'}")
+	void beforeRemoveEntity( evt ) {
+		def p = evt.args[0]; 
+		errorEm.find( [batchid: p.objid ] ).delete();
+		batchEm.find([ objid: p.objid ]).update([ taskid: '{NULL}' ]); 
+		taskEm.find([ refid: p.objid ]).delete();
+	}
+
+	//load period when opening the batch
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'vw_waterworks_batch_billing'}")
+	void afterRead( evt ) {
+		def p = evt.result;
+		if(!p.period?.duedate && p.year && p.month) {
+			def pd = skedSvc.getSchedule( [scheduleid: p.scheduleid, year: p.year, month: p.month ] );
+			pd.remove("year");
+			pd.remove("month");
+			pd.remove("objid");			
+			p.period = pd;
+		}
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_batch_billing' && args[0].action == 'send-for-mobile-reading'  }")
+	public void checkPrevReadingBeforeMobileReading( evt ) {
+		def p = evt.args[0]; 
+		def cnt = vwConsumptionEm.find( [batchid: p.refid ] ).select( "c:{COUNT(*)}" ).where("prev.reading IS NULL").val();
+		if( cnt > 0 ) 
+			throw new Exception("Some entries do not have previous readings. Please make sure that all previous readings are entered");
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_batch_billing' && args[0].action == 'submit-for-reading'  }")
+	public void checkErrorsBeforeProcess( evt ) {
+		def p = evt.args[0]; 
+		def cnt = errorEm.find( [batchid: p.refid] ).select("c:{COUNT(*)}").val();	
+		if(cnt!=null && cnt > 0 ) 
+			throw new Exception("Please resolve the batch errors first before proceeding");
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_batch_billing' && args[0].action == 'submit-for-approval'  }")
+	public void checkErrorsBeforeApproval( evt ) {
+		def p = evt.args[0]; 
+		def batch = batchEm.find([objid: p.refid]).first();			
+
+		def unreadCount = vwConsumptionEm.find( [batchid: batch.objid ]).where("reading IS NULL").select("c:{COUNT(*)}").val();
+		if( unreadCount > 0 ) 
+			throw new Exception("There should be no unread items");
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_batch_billing' && args[0].action == 'close-batch'  }")
+	public void validateBeforeClose( evt ) {
+		def p = evt.args[0]; 
+		def unprinted = billEm.find( [batchid: p.refid ]).select("c:{COUNT(*)}").where("printed=0").val();
+		if( unprinted > 0 ) throw new Exception("This batch cannot be closed yet because there are unprinted bills");
+	}
+
+	@After(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_batch_billing' && args[0].action == 'close-batch'  }")
+	public void updateSubAreaToNextPeriod( evt ) {
+		def p = evt.args[0]; 
+		def batch = batchEm.find( [objid: p.refid ] ).first();
+		int nyr = batch.year;
+		int nmon = batch.month + 1;
+		if( nmon > 12 ) {
+			nmon = 1;
+			nyr = nyr + 1;
+		}
+		subareaEm.find( [objid: batch.subareaid ]).update( [year: nyr, month: nmon ] );
+	}
+	
+
+
+} 

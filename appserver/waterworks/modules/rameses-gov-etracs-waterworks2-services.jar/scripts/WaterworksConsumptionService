@@ -1,0 +1,111 @@
+import com.rameses.annotations.*;
+
+class WaterworksConsumptionService {
+
+    @Service("WaterworksComputationService")
+    def compSvc;
+       
+    @DataContext("vw_waterworks_account")
+    def vwAcctEm;
+
+    @DataContext("waterworks_consumption")
+    def consumptionEm;
+
+    @ProxyMethod
+    public def calcItems( def o ) {
+        if(!o.acctid) throw new Exception("acctid is required in WaterworksConsumptionService.calcItems");
+        if(!o.meterstate) throw new Exception("meterstate is required in WaterworksConsumptionService.calcItems");
+        if(!o.items) throw new Exception("items is required in WaterworksConsumptionService.calcItems" );
+
+        def z = [:];
+        z.acctid = o.acctid;
+        z.meterstate = o.meterstate;
+
+        o.items.each { 
+            if( it.prev ) {
+                def pp = [:];
+                pp.putAll( z );
+                z.prevreading = it.prev.reading;
+                z.reading = it.reading;
+
+                def res = compSvc.compute(z);
+                if(res.volume) it.volume = res.volume;
+                if(res.amount) it.amount = res.amount;                
+            }
+            else {
+                it.volume = 0;
+                it.amount = 0;
+            }
+        }
+
+        return o.items;
+    }
+
+    @ProxyMethod
+    public void saveItems( def o ) {
+        if(!o.acctid) throw new Exception("acctid is required in WaterworksConsumptionService.saveItems" );
+        if(!o.items) throw new Exception("items is required in WaterworksConsumptionService.saveItems" );
+
+        def acct = vwAcctEm.find( [objid: o.acctid ]).first();
+        if(!acct) throw new Exception("account not found");
+
+        o.items.each {
+            if(!it.objid) {
+                it.txnmode = "CAPTURE";
+                it.acctid = acct.objid;
+                it.meterid = acct.meter.objid;
+                consumptionEm.create(it);
+            }
+            else {
+                consumptionEm.find([objid:it.objid]).update(it);                
+            }
+        }
+
+        //we remove deleted items passed
+        if( o.deleteditems ) {
+            o.deleteditems.each {
+                 consumptionEm.find([objid:it.objid]).delete();
+            }
+        }
+    }    
+
+    @ProxyMethod
+    public def calcAndUpdate( def o ) {
+        if(!o.acctid) throw new Exception("acctid is required in WaterworksConsumptionService.calcAndUpdate");
+        if(!o.meterstate) throw new Exception("meterstate is required in WaterworksConsumptionService.calcAndUpdate");
+        if(o.prevreading==null) throw new Exception("prev.reading is required in WaterworksConsumptionService.calcAndUpdate");
+        if(o.reading==null) throw new Exception("reading is required in WaterworksConsumptionService.calcAndUpdate");
+        if(!o.meterstate) throw new Exception("meterstate is required in WaterworksConsumptionService.calcAndUpdate");
+        if(!o.consumptionid) throw new Exception("consumptionid is required in WaterworksConsumptionService.calcAndUpdate");
+
+        def z = [:];
+        z.acctid = o.acctid;
+        z.meterstate = o.meterstate;
+        z.prevreading = o.prevreading;
+        z.reading = o.reading;
+        def res = compSvc.compute(z);
+        
+        def u = [:];
+        u.reading = o.reading;
+        u.volume = res.volume;
+        u.amount = res.amount;   
+        u.reader = o.reader;
+        u.readingdate = o.readingdate;
+        consumptionEm.find([objid:o.consumptionid]).update( u );
+        return u;
+    }
+
+    @ProxyMethod
+    public def updateHold( def o ) {
+        consumptionEm.find([objid:o.consumptionid]).update( [hold: o.hold] );
+    }
+
+    @ProxyMethod
+    public def addConsumption( def o ) {
+        o.volume = 0;
+        o.amount = 0;
+        o.hold = 0;
+        consumptionEm.create(o);
+    }
+
+}

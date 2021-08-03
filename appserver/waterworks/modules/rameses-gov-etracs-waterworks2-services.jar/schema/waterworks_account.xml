@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="waterworks_account">
+		<field name="objid" primary="true"  prefix="WACC"/>
+		<field name="acctinfoid" />
+		<field name="acctno" />
+		<field name="state"  visible="false" />
+		<field name="dtstarted" required="false"  type="date" />
+		<field name="seqno" type="integer" defaultvalue="0"/>
+		<field name="remarks" />
+		<field name="applicationid" required="false"/>
+		<field name="billid" />
+
+		<field name="lng" />
+		<field name="lat" />
+		<field name="excludeinbatch" type="integer"/>
+		
+	</element>
+
+</schema>

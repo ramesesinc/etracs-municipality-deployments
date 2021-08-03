@@ -1,0 +1,35 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+
+class WaterworksDisconnectionNoticeService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterworksScheduleService")
+	def skedSvc;
+
+	@DataContext("waterworks_disconnection_notice")
+	def disconEm;
+
+	@ProxyMethod
+	public def create( def o ) {
+		def dt = dateSvc.parseDate( o.refdate, null );
+
+		//based on the refdate, calculate the 2 months before this date;
+		def dt2 = dateSvc.add( dt.date, "-2M" );
+		//get first all 
+		throw new Exception("Parsed date " + dt2 );
+
+		//collect first all items without billing period and force create the schedule so we can get ist due dates
+		def list = disconEm.getBillItemsWithoutPeriod()
+		if(list) {
+			skedSvc.getSchedule(it);
+		}
+
+		//find all billitems total amount - amtpaid > 0 WHERE duedate 
+
+
+	}
+
+}

@@ -1,0 +1,40 @@
+<schema>
+	<element tablename="vw_waterworks_account_info">
+		<field name="objid" primary="true" />
+		<field name="acctname" />
+		<field name="owner_objid" />
+		<field name="owner_name" />
+		<field name="address_type" />
+		<field name="address_text" />
+		<field name="address_barangay_objid" />
+		<field name="address_barangay_name" />
+		<field name="address_city" />
+		<field name="address_province" />
+		<field name="address_municipality" />
+		<field name="address_unitno" />
+		<field name="address_street" />
+		<field name="address_subdivision" />
+		<field name="address_bldgno" />
+		<field name="address_bldgname" />
+		<field name="address_pin" />
+		<field name="stuboutid" />
+		<field name="subareaid" />
+		<field name="meterid" />
+		<field name="classification_objid" />
+		<field name="units" />
+		<complex name="attributes" serializer="default" />
+		<field name="meterstate" />
+		<field name="mobileno" />
+		<field name="email" />
+		<field name="phoneno" />
+		<field name="meter_serialno" />
+		<field name="meter_capacity" />
+		<field name="meter_brand" />
+		<field name="meter_size" />
+
+		<field name="subarea_code" />
+		<field name="subarea_area_code" />
+		<field name="stubout_code" />
+
+	</element>
+</schema>

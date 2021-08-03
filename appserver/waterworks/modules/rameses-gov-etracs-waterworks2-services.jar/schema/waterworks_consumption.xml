@@ -1,0 +1,31 @@
+<schema>
+	<element tablename="waterworks_consumption">
+		<field name="objid" primary="true"  prefix="WAC"/>
+		<field name="state" />
+
+		<!-- BEGIN_BALANCE,CAPTURE,ONLINE-->
+		<field name="txnmode" />
+		<field name="acctid" required="true"/>
+		<field name="billid" />
+
+		<complex name="meter" ref="waterworks_meter" jointype="many-to-one"  required="false"
+			includefields="objid,serialno,capacity,state">
+			<key field="meterid" target="objid"/>
+		</complex>
+
+		<field name="reading" caption="CurrentReading" type="integer" defaultValue="0"/>
+		<field name="volume" required="true" caption="Volume"  type="integer"/>
+		<field name="amount" type="decimal" caption="Amount" defaultValue="0"/>
+		<field name="year" caption="Year"/>
+		<field name="month" caption="Month"/>		
+		<field name="hold" />
+
+		<field name="monthname" expr="MONTH_ARRAY(month)" />
+
+
+		<field name="readingdate"  type="date"/>
+		<field name="reader_objid"/>
+		<field name="reader_name"/>
+		
+	</element>
+</schema>

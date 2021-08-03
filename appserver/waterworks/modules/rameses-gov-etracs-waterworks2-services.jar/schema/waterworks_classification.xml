@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="waterworks_classification">
+		<field name="objid" primary="true" prefix="CL" caption="Code" visible="true"/>
+		<field name="description" caption="Description"/>
+	</element>
+</schema>

@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="waterworks_batch_billing_error">
+		<field name="objid" primary="true" prefix="WBBE"/>
+		<field name="batchid" required="true"/>
+		<field name="billid" />
+		<field name="action" />
+		<field name="errmsg" />
+
+		<complex name="account" ref="vw_waterworks_account" jointype="many-to-one" includefields="acctno,acctname">
+			<key field="acctid" target="objid" />
+		</complex>	
+	</element>
+</schema>

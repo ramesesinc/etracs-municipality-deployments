@@ -1,0 +1,11 @@
+[reverse-credit-payment]
+DELETE FROM waterworks_payment_item;
+DELETE FROM waterworks_payment;
+UPDATE waterworks_consumption SET amtpaid = 0;
+UPDATE waterworks_otherfee SET amtpaid = 0;
+DELETE FROM waterworks_credit WHERE reftype = 'billing';
+UPDATE waterworks_billing SET state='PENDING';
+
+[clearbill]
+UPDATE waterworks_otherfee SET billid = NULL;
+DELETE FROM waterworks_billing;

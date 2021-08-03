@@ -1,0 +1,116 @@
+import com.rameses.annotations.*;
+
+import com.rameses.rules.common.*;
+import waterworks.facts.*;
+import treasury.facts.*;
+import treasury.actions.*;
+import com.rameses.util.*;
+
+class WaterworksCompromiseService  {
+	
+
+	@Service("NumberService")
+	def numSvc;
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("ControlnoGeneratorService")
+    def controlNoSvc;
+
+	@Service("Var")
+	def var;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("waterworks_compromise")
+	def compEm;
+
+	@DataContext("vw_waterworks_compromise")
+	def vwCompEm;
+
+	@DataContext("waterworks_compromise")
+	def compromiseEm;
+
+	@DataContext("waterworks_compromise_task")
+	def compromiseTaskEm;
+
+	@DataContext("waterworks_compromise_billitem")
+	def compromiseBillitemEm;
+
+	@DataContext("waterworks_compromise_fee")
+	def compromiseFeeEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def buildInstallments( def o ) {
+		if( !o.objid ) throw new Exception("WaterworksCompromiseService.buildInstallment requires objid param");
+		def comp = vwCompEm.find( [objid: o.objid ] ).first();
+		def startDate = comp.startduedate;
+		if( !startDate ) throw new Exception("Please specify start due date in compromise");
+		def duedate = startDate;
+		def prin = comp.amount - comp.downpayment;
+		def term = comp.term;
+		def instAmt = NumberUtil.round(prin/term);
+		def amt = prin;
+		def addMonth = { t->
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(t);
+			cal.add(Calendar.MONTH, 1);
+			return cal.getTime();
+		}
+
+		def items = [];
+		(1..term).each { i->
+			def itm = [:];
+			if(i!=term) {
+				itm.amount = instAmt;
+			}
+			else {
+				itm.amount = amt;
+			}
+			itm.parentid = comp.objid;
+			itm.item = 	[objid: "WATER_COMPROMISE_INSTALLMENT"];		
+			itm.particulars = i + " of " + term;	
+			itm.duedate = duedate;
+			itm.amtpaid = 0;
+			itm.itemtype = "installment";
+			itm.state = "DRAFT";
+			amt -= instAmt;
+			duedate = addMonth(duedate);
+			items << itm;
+		}
+		return items;
+	}
+
+	@ProxyMethod
+	public def create( def p ) {
+		def pattern = var.waterworks_compromise_controlno_format;
+		if(!pattern) throw new Exception("Please specify waterworks_compromise_controlno_format in sys_var");
+		p.controlno = controlNoSvc.getNextNo(pattern);
+		p.dtcreated = dateSvc.getServerDate();
+		p.txndate = dateSvc.getServerDate();
+		compromiseEm.create( p );
+		p.billitems.each { bi->
+			bi.amtpaid = 0;
+			bi.parentid = result.objid;
+			compromiseBillitemEm.create( bi );
+		};
+		p.installments.each { inst->
+			inst.parentid = result.objid;
+			compromiseFeeEm.create( inst );
+		}
+		//start the workflow
+		def wf = [:];
+		wf.processname = 'waterworks_compromise';
+		wf.refid = result.objid;
+		wf.startdate = dateSvc.serverDate;
+		taskSvc.start( wf );
+	}
+
+
+
+}

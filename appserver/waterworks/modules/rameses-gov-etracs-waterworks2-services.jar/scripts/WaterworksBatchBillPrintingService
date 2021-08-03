@@ -1,0 +1,110 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+
+/***************************************************
+* This service will update each record and set the billrefno
+* The billrefno is the printed number on paper e.g. a receipt 
+* if the client passed a printed list (i.e. list of ids successfully printed), 
+* update it first to printed then process next batch
+*****************************************************/
+
+class WaterworksBatchBillPrintingService {
+	
+	@Service
+	def self;
+
+	@Service("WaterworksBillStatementService")
+	def statementSvc;
+
+	@Service("WaterworksBarcodeFormatService")
+	def barcodeSvc;
+
+	@Service("Var")
+	def var;
+
+	@DataContext('waterworks_bill')
+	def billEm; 
+
+	@DataContext('vw_waterworks_bill')
+	def vwBillEm; 
+
+	@ProxyMethod
+	public def formatReport( def o ) {
+		return [];
+	}
+
+	@ProxyMethod 
+	def getBatchPrintInfo( o ) { 
+		if ( !o.batchid ) throw new Exception("batchid is required in WaterworksBatchBillPrintingService.getBatchPrintInfo "); 
+		def c = billEm.find([batchid: o.batchid]).select("c:{COUNT(*)}").where("printed=0").val();
+		if( !c ) return null;
+		return [batchid: o.batchid, totalcount: c, counter: 0 ];
+	} 
+
+	def formatPrintListData( def list ) {
+		list.each{
+			def res = statementSvc.getBillDetails( [objid: it.objid, include_unposted: false ] );
+			it.barcode = barcodeSvc.formatBillBarcode( it.billno );
+			it.amount = res.totalamount;
+			it.totalamount = res.totalamount;		
+			it.details = res.details;
+			if( it.consumption ) {
+				it.volume = it.consumption.volume;
+				it.reading = it.consumption.reading;
+				it.prevreading = it.consumption.prev.reading;
+				it.readingdate = it.consumption.readingdate;
+				it.reader = it.consumption.reader;
+			}
+		}
+		return list;
+	}
+
+	@ProxyMethod
+	public def getPrintList( def o ) {
+		int batch_process_size = 20;
+		def sz = var.waterworks_batch_print_size;
+		if( sz !=null ) {
+			batch_process_size = sz.toInteger();
+		}
+		def list = vwBillEm.find([batchid: o.batchid]).where("printed=0").limit(batch_process_size).orderBy("billno ASC").list();
+		return formatPrintListData(list);
+	}
+
+	@ProxyMethod
+	public void updateBillPrinted( def o ) {
+		if(!o.items) throw new Exception("items required in WaterworksBatchBillPrintingService.updateBillPrinted");
+		o.items.each {
+			billEm.find([objid: it.objid]).update( [printed:1, billrefno: it.billrefno ] );
+		}
+	}
+
+	@ProxyMethod 
+	def getBatchReprintInfo( o ) { 
+		if ( !o.batchid ) throw new Exception("batchid is required in WaterworksBatchBillPrintingService.getBatchReprintInfo "); 
+		def c = billEm.find([batchid: o.batchid]).select("c:{COUNT(*)}").where("printed=1").val();
+		if( !c ) return null;
+		return [batchid: o.batchid, totalcount: c, counter: 0 ];
+	} 
+
+	@ProxyMethod
+	public def getReprintList( def o ) {
+		int batch_process_size = 20;
+		def sz = var.waterworks_batch_print_size;
+		if( sz !=null ) {
+			batch_process_size = sz.toInteger();
+		}
+		def list = vwBillEm.find([batchid: o.batchid]).where("printed=1").orderBy("billno ASC").list(o.start, batch_process_size);
+		return formatPrintListData(list);
+	}
+
+	@ProxyMethod
+	public def getBatchPrintStatus( def o ) {
+		if ( !o.batchid ) throw new Exception("batchid is required in WaterworksBatchBillPrintingService.getBatchPrintStatus "); 
+		def pstatus = [:];
+		pstatus.totalcount = billEm.find([batchid: o.batchid]).select("c:{COUNT(*)}").val();				
+		pstatus.unprintedcount = billEm.find([batchid: o.batchid]).select("c:{COUNT(*)}").where("printed=0").val();		
+		pstatus.printedcount = billEm.find([batchid: o.batchid]).select("c:{COUNT(*)}").where("printed=1").val();
+		return pstatus;
+	}
+
+} 

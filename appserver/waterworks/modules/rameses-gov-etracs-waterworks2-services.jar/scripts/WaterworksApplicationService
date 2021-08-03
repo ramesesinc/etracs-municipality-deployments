@@ -1,0 +1,79 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import waterworks.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+
+class WaterworksApplicationService {
+	
+	@Service("BillingRuleService")
+	def ruleSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("waterworks_application")
+	def appEm;
+
+	@DataContext("waterworks_application_fee")
+	def feeEm;
+
+	@DataContext("waterworks_application_requirement")
+	def reqEm;
+
+	@DataContext("waterworks_application_bom")
+	def bomEm;
+
+	private def buildFacts( def o ) {
+		def facts = [];
+		facts << new WaterApplication(apptype: o.apptype, classification:o.account.classification.objid);
+		o.account.attributes.each {
+			facts << new WaterworksAttribute(name: it);
+		};
+		return facts;
+	}
+
+	@ProxyMethod
+	public def buildRequirements( def o ) {
+		if(!o.appid) throw new Exception("appid is required in WaterworksNewConnectionService.buildRequirements")
+		def app = appEm.find( [objid: o.appid ]).first();
+		throw new Exception("app " + app.account.attributes);
+		def facts = buildFacts( app );
+
+		def req = [rulename:'waterworksrequirement'];
+		req.factBuilder = new FactBuilder();
+		req.factBuilder.facts = facts;
+		req.params = [objid:bill.objid];
+		def res = ruleSvc.execute(req);
+		throw new Exception("req " + req.requirements);
+		reqEm.find([appid: o.appid])
+	}
+
+	@ProxyMethod
+	public def buildFees(def o) {
+		if(!o.appid) throw new Exception("appid is required in WaterworksApplicationService.buildFees")
+		def app = appEm.find( [objid: o.appid ]).first();
+		def req = [rulename:'waterworksapplication'];
+		req.factBuilder = new FactBuilder();
+		req.factBuilder.facts = buildFacts( app );
+		req.params = [objid:app.objid];
+		def res = ruleSvc.execute(req);
+		def billitems = res.billitems;
+		if(!billitems) throw new Exception("billitems not found. There must be at least one billitem defined in waterworksbilling rules under application rule group");
+
+		feeEm.find([appid: o.appid]).delete();
+		billitems.each {
+			feeEm.create( [item: [objid:it.billcode], amount: it.amount, amtpaid: 0, appid: o.appid ] );
+		}
+		return [total: feeEm.find([appid: o.appid]).select("amt:{SUM(amount)}").val()];
+	}
+
+	@ProxyMethod
+	public def clearFees(def o) {
+		if(!o.appid) throw new Exception("appid is required in WaterworksApplicationService.clearFees")
+		feeEm.find([appid: o.appid]).delete();
+		return [total: 0];
+	}
+
+}

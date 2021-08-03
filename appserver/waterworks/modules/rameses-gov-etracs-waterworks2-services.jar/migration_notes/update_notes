@@ -1,0 +1,22 @@
+Notes:
+
+Fixed rule fact: 
+
+1. Edit WaterworksConsumption
+
+2. Add WaterFee in billing rules:
+	
+	WC: WaterConsumption( AMT:amount >0, hold:false  )
+	WBI: WaterBillItem( YR:year, MON: month )
+	Add Action:
+	   AddWaterBillItem
+	   	  Year: YR,
+	   	  Month: MON, 
+	   	  Amount: AMT,
+	   	  Bill Code: WATER_FEE
+
+3. Transfer other bills in initial
+
+4. Update Service and client
+
+5. 

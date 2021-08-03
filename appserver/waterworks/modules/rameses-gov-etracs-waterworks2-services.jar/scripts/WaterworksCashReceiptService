@@ -1,0 +1,64 @@
+import com.rameses.annotations.*;
+
+class WaterworksCashReceiptService {
+
+    @Service("DateService")
+    def dateSvc;
+
+    @Service("WaterworksApplicationBillingPaymentService")
+    def appBillPmtSvc;
+
+    @Service("WaterworksCompromiseBillingPaymentService")
+    def compBillPmtSvc;
+
+    @Service("WaterworksRegularBillingPaymentService")
+    def regBillSvc;
+
+    def findTxnType( def id ) {
+        def r = regBillSvc.findTxn( [id: id] );
+        if( r ) return r;
+ 
+        r = appBillPmtSvc.findTxn( [id: id] );
+        if( r ) return r;
+
+        r = compBillPmtSvc.findTxn( [id: id] );
+        if( r ) return r;
+        return null;
+    }
+ 
+	@ProxyMethod 
+	public def getBilling( o ) {
+        def param = o.params;
+
+        def txntype = param.txntype;
+        def txndate = param.billdate;
+        if(!txndate) txndate = dateSvc.getBasicServerDate();
+
+        def pp = [:];
+        pp.id = param.id;
+        if( param.amtpaid ) pp.amtpaid = param.amtpaid;
+        if( param.payoption ) pp.payoption = param.payoption;
+        pp.txndate = txndate;
+
+        if( txntype == null ) {
+            txntype = findTxnType( pp.id );
+        }
+
+        def res = null;        
+        if( txntype == "billing" ) {
+            return  regBillSvc.getBilling( pp ); 
+        }
+        else if(txntype == "application") {
+            return appBillPmtSvc.getBilling( pp );
+        }
+        else if(txntype == "compromise") {
+            return compBillPmtSvc.getBilling( pp );
+        }
+        else {
+            throw new Exception("There are no current routine for " + txntype );
+        }
+	}
+
+
+
+}

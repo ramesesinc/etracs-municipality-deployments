@@ -1,0 +1,22 @@
+<schema>
+	<element tablename="waterworks_payment_item">
+		<field name="objid" primary="true" prefix="WPI" />
+
+		<field name="parentid"  />
+
+		<!-- link to ledger -->
+		<field name="refid"  />
+		<field name="reftype"  />
+
+		<field name="amount" required="true" type="decimal" caption="Amount"/>
+		<field name="discount"  type="decimal" caption="Discount"/>
+
+		<!-- derived fields -->
+		<field name="remarks"  />
+
+		<!-- this is only for referential integrity -->
+		<field name="billitemid"  />
+		<field name="compromisefeeid"  />
+
+	</element>
+</schema>

@@ -1,0 +1,14 @@
+import com.rameses.annotations.*; 
+
+class OnlineWaterworksBillingService {
+	
+	@Service(value="WaterworksOnlineBillingService")
+	def billingSvc;
+
+	@ProxyMethod 
+	public def getBilling( def o ) {
+		return billingSvc.getBilling( o );
+	} 
+
+
+}

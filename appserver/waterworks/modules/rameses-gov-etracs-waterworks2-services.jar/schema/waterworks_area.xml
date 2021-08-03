@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="waterworks_area">
+		<field name="objid" primary="true" editable="false" />
+		<field name="code" caption="Area Code" indexed="true" searchable="true"/>
+	</element>
+</schema>

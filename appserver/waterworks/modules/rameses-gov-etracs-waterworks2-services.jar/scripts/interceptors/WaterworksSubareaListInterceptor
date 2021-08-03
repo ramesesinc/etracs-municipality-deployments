@@ -1,0 +1,52 @@
+import com.rameses.annotations.*;
+
+class WaterworksSubareaListInterceptor{
+	
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'waterworks_subarea'}")
+	public void getAcctNodeList(def evt) {
+		def result = evt.result;
+		result << [ title: 'All'];
+		result << [ title: 'For Billing', id:'forbilling'];
+		result << [ title: 'Active', id:'active'];
+		result << [ title: 'Without Billing Period', id:'noperiod'];		
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'waterworks_subarea'}")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.id ) return;
+
+		def str = '';
+		def m = [:];
+		def status = o.node.id;
+
+		switch( status ) {
+			case 'forbilling':
+				str = " ((year*12) + month) = (YEAR(NOW())*12 + MONTH(NOW())) ";
+				break; 
+
+			case 'active':
+				str = " ((year*12) + month) = ( (YEAR(NOW())*12) + MONTH(NOW()) - 1 ) ";
+				break;
+
+			case 'noperiod':
+				str = " year IS NULL AND month IS NULL";
+				break;
+
+			default:	
+				str = " 1=1 ";
+				break;
+		}
+
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+}

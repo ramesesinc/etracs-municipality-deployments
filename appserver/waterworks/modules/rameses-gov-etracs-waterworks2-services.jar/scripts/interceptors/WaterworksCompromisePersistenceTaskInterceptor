@@ -1,0 +1,118 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+
+class WaterworksCompromisePersistenceTaskInterceptor {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterworksRegularBillingPaymentService")
+	def paymentSvc;
+
+	@DataContext("waterworks_account")
+	def acctEm;
+
+	@DataContext("waterworks_compromise")
+	def compromiseEm;
+
+	@DataContext("waterworks_compromise_task")
+	def compromiseTaskEm;
+
+	@DataContext("waterworks_compromise_billitem")
+	def compromiseBillitemEm;
+
+	@DataContext("waterworks_compromise_fee")
+	def compromiseFeeEm;
+
+	@DataContext("vw_waterworks_compromise")
+	def vwCompromiseEm;
+
+	@DataContext("waterworks_payment")
+	def paymentEm;
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'waterworks_compromise'}")
+	void beforeRemoveCompromise( evt ) {
+		def o = evt.args[0];
+		def comp = vwCompromiseEm.find([objid: o.objid]).first();
+		if( comp.task.state !='draft')
+			throw new Exception("Application can only be deleted on the draft state");
+		compromiseBillitemEm.find( [parentid: comp.objid]).delete();	
+		compromiseEm.find([objid: comp.objid]).update([taskid: "{NULL}", acctinfoid:"{NULL}"]);
+		compromiseTaskEm.find([refid: comp.objid]).delete();
+		compromiseFeeEm.find([parentid: comp.objid]).where(" state = 'DRAFT' ").delete();		
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action== 'send-for-initial-payment' }")
+	void beforeSendForInitialPayment( evt ) {
+		def refid = evt.args[0].refid;
+		def comp = vwCompromiseEm.find([objid: refid]).first();
+
+		def itemid = "WATER_COMPROMISE_DOWNPAYMENT";
+		//find first if it exists
+		def dp = compromiseFeeEm.find( [parentid: comp.objid, itemid: itemid] ).first();
+		if( !dp ) {
+			//insert the downpayment into compromise fees so it can be collected
+			def m = [:];
+			m.parentid = comp.objid;
+			m.item = [objid: itemid];
+			m.amount = comp.downpayment;
+			m.amtpaid = 0;
+			m.itemtype = "downpayment";
+			m.state = "ACTIVE";
+			compromiseFeeEm.create( m );		
+		}
+	}
+
+	//on sending for payment make sure to activate remaining fees so it can be seen in the payments section
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action== 'send-for-payment' }")
+	void beforeSendForPayment( evt ) {
+		def refid = evt.args[0].refid;
+		compromiseFeeEm.find( [parentid: refid] ).where([state:"DRAFT"]).update( [state: "ACTIVE"]);
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action == 'send-for-approval' }")
+	void beforeSendForApproval( evt ) {
+		def refid = evt.args[0].refid;
+		if( evt.args[0].taskstate == "for-review" ) {
+			def comp = vwCompromiseEm.find([objid: refid]).first();
+			if( comp.downpayment !=null && comp.downpayment > 0 ) {
+				throw new Exception("You cannot send this for approval because there is downpayment to be paid. Please select Send for Initial Payment instead")
+			}
+		}
+	}
+
+	@After(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action == 'approve' }")
+	void afterApprove( evt ) {
+		def refid = evt.args[0].refid;
+		def task = evt.result;
+		def comp = vwCompromiseEm.find([objid: refid]).first();
+
+		//get the latest bill
+		def billid = acctEm.find( [objid:comp.acctid] ).select("billid").val();
+		if(!billid) throw new Exception("Account does not have a bill yet");
+
+		def c = [:]
+		c.dtapproved =  task.dtcreated;
+		c.objid = comp.objid;
+		c.controlno = comp.controlno;
+        c.amount = comp.amount;
+        c.acctid = comp.acctid;
+        c.billid = billid;
+        c.reftype = "compromise";
+        c.items = [];
+
+		//create a payment object to write it off from the bill; the reference must be the billitem
+		def items = compromiseBillitemEm.find( [parentid: comp.objid] ).list();
+		items.each {
+			def d = [:];
+			d.amount = it.amount;
+			d.refid = it.billitemid;
+			c.items << d;
+		}
+		paymentSvc.postPayment( c );
+	}
+
+
+	
+
+} 

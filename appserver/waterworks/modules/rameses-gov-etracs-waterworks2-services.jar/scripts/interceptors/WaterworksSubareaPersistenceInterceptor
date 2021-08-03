@@ -1,0 +1,18 @@
+
+import com.rameses.annotations.*;
+
+class WaterworksSubareaPersistenceInterceptor {
+
+ 	@Before(pattern="PersistenceService.create",  eval="#{ args[0]._schemaname == 'waterworks_area' }" )
+	public void beforeCreateArea( evt ) {
+		def o = evt.args[0];
+		o.objid = o.code;
+	} 
+
+    @Before(pattern="PersistenceService.create",  eval="#{ args[0]._schemaname == 'waterworks_subarea' }" )
+	public void beforeCreateSubArea( evt ) {
+		def o = evt.args[0];
+		o.objid = o.code;
+	} 
+ 
+}

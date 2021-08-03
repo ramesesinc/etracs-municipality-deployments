@@ -1,0 +1,175 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+import java.rmi.server.*;
+
+class WaterworksApplicationPersistenceTaskInterceptor {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("ControlnoGeneratorService")
+    def controlNoSvc;
+
+	@Service("Var")
+	def var;
+
+	@DataContext("waterworks_account_info")
+	def acctInfoEm;
+
+	@DataContext("waterworks_application")
+	def appEm;
+
+	@DataContext("waterworks_application_task")
+	def appTaskEm;
+
+	@DataContext("waterworks_application_fee")
+	def feeEm;
+
+	@DataContext("waterworks_account")
+	def acctEm;
+
+	@DataContext("waterworks_consumption")
+	def consEm;
+
+	@DataContext("waterworks_meter")
+	def meterEm;
+
+	@DataContext("waterworks_subarea")
+	def subAreaEm;
+
+	//NEW CONNECTION
+	@Before(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_application'}")
+	void beforeCreateApplication( evt ) {
+		def p = evt.args[0]; 
+		def pattern = var.waterworks_application_appno_format;
+		if(!pattern) throw new Exception("Please specify waterworks_application_appno_format in sys_var");
+		p.appno = controlNoSvc.getNextNo(pattern);
+		if( p.apptype == "NEW") {
+			//save acct info first
+			def acctInfo = acctInfoEm.create( p.account );
+			p.acctinfoid = acctInfo.objid;		
+		}
+	}
+
+	@After(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_application'}")
+	void afterCreateApplication( evt ) {
+		def o = evt.args[0];
+		def result = evt.result; 
+		def wf = [:];
+		wf.info = [apptype: o.apptype ];
+		wf.processname = 'waterworks_application';
+		wf.refid = result.objid;
+		wf.startdate = dateSvc.serverDate;
+		taskSvc.start( wf );
+	}
+
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'waterworks_application'}")
+	void afterReadApplication( evt ) {
+		def result = evt.result; 
+		result.total = feeEm.find([appid: result.objid]).select("amt:{SUM(amount)}").val();
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'waterworks_application'}")
+	void beforeRemoveApplication( evt ) {
+		def o = evt.args[0];
+		def app = appEm.find([objid: o.objid]).first();
+		if( app.task.state !='receiving')
+			throw new Exception("Application can only be deleted on the receving state");
+		appEm.find([objid: o.objid]).update([taskid: "{NULL}", acctinfoid:"{NULL}"]);
+		appTaskEm.find([refid: app.objid]).delete();
+		if( app.apptype == "NEW") {
+			acctInfoEm.find([objid:app.acctinfoid]).delete();
+		}
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_application' && args[0].action == 'send-for-approval' }")
+	void beforeSubmitForApproval( evt ) {
+		def o = evt.args[0];
+		def countItems = feeEm.find( [appid: o.refid ] ).select("c:{COUNT(*)}").val();
+		if(!countItems) throw new Exception("There must be at least one fee");
+	}
+
+	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_application' && args[0].action == 'release' }")
+	void beforeRelease( evt ) {
+		def o = evt.args[0];
+
+		def app = appEm.find([objid: o.refid]).first();
+		if( !app.account.meterid ) throw new Exception("Meter is required before releasing");
+		if( !app.account.subareaid ) throw new Exception("Subarea is required before releasing");
+	}
+
+	@After(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_application' && args[0].action == 'release' }")
+	void afterReleaseActivate( evt ) {
+		def o = evt.args[0];
+		def result = evt.result;
+
+		def appid = o.refid;
+		def app = appEm.find([objid: appid]).first();
+
+
+		//get the year and month of the current bill
+		def yr = o.info.year;
+		def mon = o.info.month;
+		if(!yr ) throw new Exception("Please specify a bill year and bill month")	
+
+		//deduct one month from next bill date as this will represent the previous reading.
+		mon = mon - 1;
+		if( mon <= 0 ) {
+			mon = 12;
+			yr = yr - 1;
+		}	
+		def createConsumption = { acctid->
+			def wc = [:];
+			wc.txnmode = "ONLINE";
+			wc.acctid = acctid;
+			wc.meterid = app.account.meterid;
+			wc.meter = app.account.meter;
+			wc.reading = o.info.reading;
+			wc.volume = 0;
+			wc.amount = 0;
+			wc.hold = 0;
+			wc.year = yr;
+			wc.month = mon;
+			consEm.create( wc );			
+		}
+
+		if(app.apptype == "NEW") {
+			//create the account
+			def acct = [:];
+			acct.objid = "WACCT" + new UID();
+			acct.excludeinbatch = 0;
+			acct.applicationid = appid; 
+	        acct.seqno = o.info.seqno;
+
+	    	def pattern = var.waterworks_acctno_format;
+	    	if(!pattern) throw new Exception("Please specify pattern in sys_variable - waterworks_account_no_format" );
+			acct.acctno = controlNoSvc.getNextNo( pattern );
+
+	        acct.state = 'ACTIVE';
+	        acct.dtstarted = dateSvc.getServerDate();
+	        acct.acctinfoid = app.acctinfoid;
+			acct = acctEm.create( acct );
+
+			//we also need to create the first consumption entry
+			createConsumption( acct.objid );
+
+			//update old meter currentacctid 
+			meterEm.find( [objid: app.account.meterid]).update( [currentacctid : acct.objid ] );
+
+			result.acctno = acct.acctno;		
+		}
+		else if( app.apptype == "RECONNECTION" ) {
+			throw new Exception("Block issuance check balance before entry " + app.acctid );
+			acctEm.find( [objid: app.acctid ]).update([state:"ACTIVE"]);
+			//find first if there is already existing otherwise do not create
+			def wc1 = consEm.find([acctid:acct.objid, year:yr,month:mon, meterid: app.account.meterid]).first();
+			if(!wc1) {
+				createConsumption( app.acctid );
+			}
+		}
+	}
+
+} 

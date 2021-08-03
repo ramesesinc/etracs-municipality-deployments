@@ -1,0 +1,12 @@
+<schema>
+	<element tablename="waterworks_itemaccount">
+		<field name="objid" primary="true" visible="true" hidden="false"  searchable="true"/>
+		<field name="title"  searchable="true"/>
+
+		<!-- WATER,SURCHARGE,INTEREST,OTHERFEE,ADJ-->
+		<field name="itemtype" />
+		<field name="system" />
+		<field name="sortorder" type="integer"/>		
+	</element>
+</schema>
+

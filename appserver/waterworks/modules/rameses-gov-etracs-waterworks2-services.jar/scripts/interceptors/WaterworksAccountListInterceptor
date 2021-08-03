@@ -1,0 +1,68 @@
+import com.rameses.annotations.*;
+
+class WaterworksAccountListInterceptor{
+	
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'vw_waterworks_account'}")
+	public void getAcctNodeList(def evt) {
+		def result = evt.result;
+		result << [ title: 'Active (Metered)', id:'active'];
+		result << [ title: 'Active (Unmetered)', id:'unmetered'];
+		result << [ title: 'Disconnected', id:'disconnected'];
+		result << [ title: 'Draft', id:'draft'];
+		result << [ title: 'Defective', id:'defective'];		
+		result << [ title: 'Closed', id:'closed'];	
+		result << [ title: 'Excluded in Batch', id:'excludebatch'];			
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'vw_waterworks_account'}")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.id ) return;
+
+		def str = '';
+		def m = [:];
+		def status = o.node.id;
+
+		switch( status ) {
+			case 'draft':
+				str = " state = 'DRAFT' ";
+				break; 
+
+			case 'active':
+				str = "state = 'ACTIVE' AND NOT(meterid IS NULL)";
+				break;
+
+			case 'unmetered': 	
+				str = "state = 'ACTIVE' AND meterid IS NULL";
+				break;
+
+			case 'defective':
+				str = "state='ACTIVE' AND meterstate = 'DEFECTIVE'";
+				break;
+
+			case 'disconnected':
+				str = "state = 'DISCONNECTED'";
+				break;
+
+			case 'closed':
+				str = "state = 'CLOSED' ";
+				break;
+
+			case 'excludebatch':
+				str = " excludeinbatch = 1 ";
+				break;
+
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+		o.select += ",status:{'" + status + "'}";
+	}
+
+}

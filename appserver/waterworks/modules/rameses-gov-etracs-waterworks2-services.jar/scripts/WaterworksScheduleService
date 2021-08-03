@@ -1,0 +1,54 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import treasury.facts.*;
+import waterworks.facts.*;
+
+class WaterworksScheduleService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service(value="HolidayService", connection="enterprise")
+	def holidaySvc;
+
+	@DataContext("waterworks_billing_period")
+	def skedEm;	
+
+	@ProxyMethod 
+	public def getSchedule( p ) {
+		if( !p.scheduleid ) throw new Exception("scheduleid is required");
+		if( !p.year ) throw new Exception("year is required");
+		if( !p.month ) throw new Exception("month is required");
+
+		boolean recalc = (p.option?.recalc.toString() == 'true');
+		def sked = skedEm.find( [scheduleid: p.scheduleid, year:p.year, month: p.month ] ).first();
+		if( !sked || recalc ) {
+			def billingPeriod = new WaterBillingPeriod( year: p.year, month : p.month );
+			def facts = [];
+			facts << new WaterScheduleGroup( id: p.scheduleid );
+			facts << billingPeriod; 
+			
+			//include holidays
+			facts << new HolidayFact(  
+				handler: { dt->
+					def h = holidaySvc.lookup(dt);
+					return (h!=null);
+				}
+			);
+			def res = ruleSvc.execute( "waterworksbillingschedule", facts, null, null );
+
+			def m = billingPeriod.toMap();
+			m.scheduleid = p.scheduleid;
+			m.objid = m.scheduleid + '-' + m.year + '-' + String.format("%02d", m.month ); 
+
+			if ( !sked ) { 
+				sked = skedEm.create( m ); 
+			} else if ( recalc ) { 
+				sked = skedEm.update( m ); 
+			} 
+		}
+		return sked;
+	}
+
+
+}

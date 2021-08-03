@@ -1,0 +1,70 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+
+class WaterworksDisconnectionPersistenceTaskInterceptor {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("ControlnoGeneratorService")
+    def controlNoSvc;
+
+	@Service("Var")
+	def var;
+
+	@DataContext("waterworks_account")
+	def acctEm;
+
+	@DataContext("waterworks_disconnection")
+	def disconnectionEm;
+
+	@DataContext("vw_waterworks_disconnection")
+	def vwDisconnectionEm;
+
+	@DataContext("waterworks_disconnection_task")
+	def disconnectionTaskEm;
+
+	//DISCONNECTION
+	@Before(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_disconnection'}")
+	void beforeCreateDisconnection( evt ) {
+		def p = evt.args[0]; 
+		def pattern = var.waterworks_disconnection_controlno_format;
+		if(!pattern) throw new Exception("Please specify waterworks_disconnection_controlno_format in sys_var");
+		p.controlno = controlNoSvc.getNextNo(pattern);
+		p.amountdue = 0;
+		p.acctid = p.account.objid;
+		p.acctinfoid = p.account.acctinfoid;
+	}
+
+	@After(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_disconnection'}")
+	void afterCreateDisconnection( evt ) {
+		def result = evt.result; 
+		def wf = [:];
+		wf.processname = 'waterworks_disconnection';
+		wf.refid = result.objid;
+		wf.startdate = dateSvc.serverDate;
+		taskSvc.start( wf );
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'waterworks_disconnection'}")
+	void beforeRemoveDisconnection( evt ) {
+		def p = evt.args[0];
+		def disc = vwDisconnectionEm.find( [objid: p.objid] ).first();
+		if( disc.task.state!='draft') throw new Exception("Disconnection can only be deleted at draft state");
+		disconnectionEm.find( [objid: disc.objid]  ).update( [taskid: "{NULL}"])
+		disconnectionTaskEm.find( [refid: disc.objid ]).delete();
+	}
+
+	@After(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_disconnection' && args[0].action == 'approve'  }")
+	public void afterApproveDisconnection( evt ) {
+		def p = evt.args[0]; 
+		def dc = disconnectionEm.find( [objid: p.refid] ).first();
+		acctEm.find( [objid: dc.acctid ] ).update( [state: "DISCONNECTED" ] );
+	}
+	
+
+
+} 

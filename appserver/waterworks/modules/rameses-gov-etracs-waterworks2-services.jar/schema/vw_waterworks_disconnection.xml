@@ -1,0 +1,26 @@
+<schema>
+	<element tablename="vw_waterworks_disconnection">
+		<field name="objid" primary="true" />
+		<field name="controlno" />
+		<field name="dtcreated" />
+		<field name="acctid" />
+		<field name="account_acctno" />
+		<field name="amountdue" />
+		
+		<complex name="account" ref="vw_waterworks_account_info" jointype="many-to-one" required="true">
+			<key field="acctinfoid" target="objid" />
+		</complex>	
+
+		<field name="taskid" />
+		<field name="task_state" />
+		<field name="task_startdate" />
+		<field name="task_enddate" />
+		<field name="task_assignee_objid" />
+		<field name="task_assignee_name" />
+		<field name="task_actor_objid" />
+		<field name="task_actor_name" />
+		<field name="task_title" />
+
+	</element>
+
+</schema>

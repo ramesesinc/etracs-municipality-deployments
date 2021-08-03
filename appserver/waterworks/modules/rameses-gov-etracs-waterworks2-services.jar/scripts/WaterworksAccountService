@@ -1,0 +1,85 @@
+import com.rameses.annotations.*;
+import com.rameses.rules.common.*;
+import waterworks.facts.*;
+
+class WaterworksAccountService  {
+	
+	@DataContext("waterworks_account")
+	def acctEm;	
+
+	@DataContext("vw_waterworks_account")
+	def vwAcctEm;	
+
+	@DataContext("waterworks_billitem")
+	def billItemEm;	
+
+	@DataContext("waterworks_consumption")
+	def consumptionEm;	
+
+	@DataContext("waterworks_subarea")
+	def subAreaEm;	
+
+	@ProxyMethod
+	public def approve( def o ) {
+		if(!o.acctid) throw new Exception("acctid is required in WaterworksAccountService.approve");
+		//before approving check if the billitem year and month is at least one month before the batch period year and month
+		def acct = vwAcctEm.find( [objid:o.acctid]).first();
+
+		def subarea = subAreaEm.find( [objid: acct.subareaid ]).first();
+
+		if(!subarea?.year) 
+			throw new Exception("WaterworksAccountService.approve error. There is no subarea year specified ");
+		if(!subarea?.month) 
+			throw new Exception("WaterworksAccountService.approve error. There is no subarea month specified ");
+
+		//setup the required year and month the entries must have	
+		def ym1 = ((subarea.year*12)+subarea.month)-1;
+		def y1 = (int)(ym1 / 12);
+		def m1 = (int)(ym1 % 12);
+		if(m1==0) {
+			m1 = 12;
+			y1 = y1 - 1;
+		}
+		def monthNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+		
+		//find the latest billitem
+		def lastItem = billItemEm.find( [acctid: acct.objid] ).orderBy("year DESC, month DESC").first();
+		if( lastItem?.objid ) {
+			def ym2 = (lastItem.year*12)+lastItem.month;
+			if(ym2 != ym1) 
+				throw new Exception( "The last entry for billitems must be " + y1 + " " + monthNames[m1-1] );	
+		}	
+
+		def lastCons = consumptionEm.find( [acctid: acct.objid] ).orderBy("year DESC, month DESC").first();
+		if(!lastCons?.objid) 
+			throw new Exception("There must be at least one consumption entry");
+		
+		def ym2 = (lastCons.year*12)+lastCons.month;
+		if(ym2 != ym1) 
+			throw new Exception( "The last entry for consumption must be " + y1 + " " + monthNames[m1-1] );
+
+		def u =  [state: "ACTIVE"];
+		acctEm.find( [objid: acct.objid] ).update(u);
+		return u;
+	}
+
+	//This is a temporary method. 
+	@ProxyMethod
+	public def calcPrevSurcharge( def o ) {
+		if(!o.acctid) throw new Exception("Calculate previous surcharge");
+		
+	}
+
+	@ProxyMethod
+	public def activate( def o ) {
+		if(!o.acctid) throw new Exception("acctid is required in WaterworksAccountService.activate");
+		//before approving check if the billitem year and month is at least one month before the batch period year and month
+		def acct = vwAcctEm.find( [objid:o.acctid]).first();
+		if(acct.state!='DRAFT' ) throw new Exception("Account is not in DRAFT state");
+		def u =  [state: "ACTIVE"];
+		acctEm.find( [objid: acct.objid] ).update(u);
+		return u;
+	}
+
+
+}

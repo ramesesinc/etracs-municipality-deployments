@@ -1,0 +1,24 @@
+import com.rameses.annotations.*; 
+
+class WaterworksBatchBillingReportInterceptor {
+
+	@DataContext("waterworks_batch_billing")
+	def batchEm;
+
+	@DataContext("vw_waterworks_bill")
+	def vwBillEm;
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'waterworks_batch_dispatcher_report' }")
+	public void afterGetBatchDispatcher( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+
+		def batch = batchEm.find( [objid: t.txnid] ).first();
+		batch.year = batch.period.year;
+		batch.monthname = batch.period.monthname;
+		batch.items = vwBillEm.find([batchid: batch.objid]).select("seqno,billno,acctno,acctname,address.text,prevreading:{consumption.prev.reading},reading:{consumption.reading},meter.*").orderBy("seqno").list();
+
+		result.data = batch;
+	}
+
+}

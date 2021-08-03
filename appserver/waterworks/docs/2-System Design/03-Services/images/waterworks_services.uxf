@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="11.5.1">
+  <zoom_level>10</zoom_level>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>270</x>
+      <y>240</y>
+      <w>200</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>WaterworksBillService
+--
+addBillItem **
+updateBillItem **
+removeBillItem **
+updateBalanceForward ** 
+addConsumptionBill **
+updateBillFees **
+getBillTotals
+approve
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>60</x>
+      <y>30</y>
+      <w>230</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>WaterworksBillStatementService</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>620</x>
+      <y>470</y>
+      <w>230</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>WaterworksCashReceiptService</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>520</x>
+      <y>50</y>
+      <w>230</w>
+      <h>70</h>
+    </coordinates>
+    <panel_attributes>WaterworksBillingRuleService
+--
+getBillItems
+getPaymentItems
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>300</x>
+      <y>90</y>
+      <w>280</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;.
+getBillItems</panel_attributes>
+    <additional_attributes>260;30;30;150</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>610</x>
+      <y>90</y>
+      <w>174</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;.
+getPaymentItems</panel_attributes>
+    <additional_attributes>60;30;120;150</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>40</x>
+      <y>100</y>
+      <w>320</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>WaterworksBillStatementReportIntreceptor
+bg=blue</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>90</x>
+      <y>30</y>
+      <w>136</w>
+      <h>90</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;.
+getBillItems</panel_attributes>
+    <additional_attributes>80;30;60;70</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>590</x>
+      <y>340</y>
+      <w>194</w>
+      <h>150</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;.
+getBillPaymentItems</panel_attributes>
+    <additional_attributes>90;30;120;130</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Relation</type>
+    <coordinates>
+      <x>440</x>
+      <y>240</y>
+      <w>200</w>
+      <h>70</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;.
+getBillInfo</panel_attributes>
+    <additional_attributes>30;50;180;40</additional_attributes>
+  </element>
+  <element>
+    <type>com.umlet.element.Class</type>
+    <coordinates>
+      <x>620</x>
+      <y>240</y>
+      <w>230</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>WaterworksPaymentService
+--
+postPayment **
+voidPayment **
+applyCredits ** 
+cancelPayment
+getBillPaymentItems
+
+
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

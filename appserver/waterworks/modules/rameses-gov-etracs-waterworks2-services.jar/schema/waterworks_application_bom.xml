@@ -1,0 +1,15 @@
+<schema>
+
+	<element tablename="waterworks_application_bom">
+		<field name="objid" primary="true"  prefix="WNCB"/>
+		<field name="appid" required="true"/> 
+		<field name="item_objid" required="true"/>
+		<field name="item_code" required="true"/>
+		<field name="item_title" required="true"/>
+		<field name="unit" />
+		<field name="price" type="decimal" required="true"/>
+		<field name="qty" type="integer" />
+		<field name="amount" type="decimal" required="true"/>		
+	</element>
+
+</schema>

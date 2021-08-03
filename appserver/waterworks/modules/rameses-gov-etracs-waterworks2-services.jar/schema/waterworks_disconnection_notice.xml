@@ -1,0 +1,31 @@
+<schema>
+	<element tablename="waterworks_disconnection_notice">
+		<field name="objid" primary="true" visible="true" caption="Control No"/>
+		<field name="state" />
+		<field name="groupname" />	
+
+		<field name="acctid" />
+		<field name="acctinfoid" />
+
+		<complex name="account" ref="waterworks_account" jointype="many-to-one" includefields="acctno">
+			<key field="acctid" target="objid"/>
+		</complex>	
+
+		<complex name="acctinfo" ref="waterworks_account_info" jointype="many-to-one" includefields="acctname,address.text,owner.name">
+			<key field="acctinfoid" target="objid"/>
+		</complex>	
+
+		<field name="dtcreated" type="date"/>
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtfiled" type="date"/>
+
+		<field name="startyear" type="integer"/>
+		<field name="startmonth" type="integer"/>
+		<field name="endyear" type="integer"/>
+		<field name="endmonth" type="integer"/>
+		<field name="amtdue" type="decimal"/>
+
+	</element>
+
+</schema>

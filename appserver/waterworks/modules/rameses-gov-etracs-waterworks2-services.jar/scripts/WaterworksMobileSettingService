@@ -1,0 +1,172 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+import com.rameses.functions.*;
+import java.text.*;
+
+class WaterworksMobileSettingService {
+
+	@Service("RuleMgmtService")
+	def ruleMgmt;
+
+	@DataContext("sys_rule")
+	def ruleEm;
+
+
+	def buildRuleText( def rule ) {
+		def vars = [];
+		def conditions = [];
+		def actions = [];
+		rule.conditions.each {
+			def factName = "facts." + it.fact.factclass.substring( it.fact.factclass.lastIndexOf(".") + 1 );
+			if( it.varname ) vars << [name: it.varname, value: factName];
+			it.constraints.findAll{ it.varname !=null }.each { ct ->
+				vars << [name: ct.varname, value: factName +"." + ct.field.name];
+			}
+			def conds = it.constraints.findAll{ it.operator?.symbol !=null };
+			conds.each { x->
+				def vv = [];
+				vv << factName + "." + x.field.name;
+				def val = null;
+				if( x.decimalvalue !=null ) {
+					val = x.decimalvalue;
+				}	
+				else if(x.intvalue!=null) {
+					val = x.intvalue;
+				}	
+				else if(x.stringvalue!=null) {
+					val = "'" + x.stringvalue + "'";
+				}	
+				else if(x.listvalue!=null) {
+					val = "'.*" + x.listvalue.key.join("|") + ".*'";
+				}	
+				if( x.operator.symbol == "matches" ) {
+					vv << ".match(";
+					vv << val;
+					vv << ")!=null";
+				}	
+				else {
+					vv << x.operator.symbol;
+					if(val!=null) vv << val;
+				}
+				conditions << vv; 
+			}
+		}
+		rule.actions.each {
+			def act = [ name:  it.actiondef.objid ];
+
+			def buildExpr = { amtParam->
+				def expr = null;
+				//if expr type is range generate the expr instead
+				if( amtParam.exprtype == 'range') {
+					def lv = amtParam.listvalue;
+					def opt = (amtParam.rangeoption==0) ? "<" : "<=";  
+					def sbe = new StringBuilder();
+					for( int j=0; j< lv.size(); j++ ) {
+						def pe = lv[j];
+						if( j > 0 ) sbe.append( " else ");
+						if( pe.to !=null ) {
+							sbe.append( "if (" + amtParam.var.name + opt + pe.to + ")" );	
+						}
+						sbe.append( "{ return " + pe.value + "; }" );
+					}
+					expr = sbe.toString();
+				}
+				else {
+					expr = amtParam.expr.replace("def", "var").replace("\n", "").replace("\t", "");
+				}
+				return expr;
+			}
+
+			def buildVal = { _aparam ->
+				if(_aparam.exprtype!=null) return buildExpr( _aparam );
+				else if( _aparam.var.name!=null) return _aparam.var.name;
+				return "null";
+			}
+
+			//for compute consumption actioon
+			if( it.actiondef.objid.toLowerCase().matches(".*computeconsumption")  ) {
+				def actionName = "action"+it.pos;
+				def refParam = it.params.find{ pt-> pt.actiondefparam.name=='ref' };				
+				def amtParam = it.params.find{ pt-> pt.actiondefparam.name=='amount' };
+
+				def sbuff = new StringBuilder();
+				sbuff.append( "var " + actionName + " =function() {");
+				sbuff.append( buildExpr(amtParam) );
+				sbuff.append("};");
+				sbuff.append( refParam.var.name +".amount="+actionName+ "();" );
+				act.expr = sbuff.toString();
+			}
+
+			//addbillitem rule
+			if( it.actiondef.objid.toLowerCase().matches(".*addwaterbillitem") ) {
+				def actionName = "action"+it.pos;
+				def sbuff = new StringBuilder();
+				sbuff.append( "result.push({ ");
+				int i = 0;
+				it.params.each { pt->
+					if(i>0) sbuff.append( ",");
+					if( pt.obj?.key ==null ) {
+						sbuff.append( pt.actiondefparam.name + ": " + buildVal(pt) );
+					}
+					else {
+						sbuff.append( "itemid: '" + pt.obj.key + "',itemtitle:'" + pt.obj.value + "'" );
+					}
+					i++; 					
+				}
+				sbuff.append("});")
+				act.expr = sbuff.toString();
+			}
+
+			actions << act;
+		}
+
+		def buff = new StringBuilder();
+		buff.append( "function " + rule.name +  "(facts,result) { ");
+		vars.each {
+			buff.append( "var " + it.name + "=" + it.value +";" );
+		}
+		if(conditions) {
+			buff.append("if( ")
+			for( int i=0; i < conditions.size(); i++) {
+				if(i !=0 ) buff.append( " && ");
+				buff.append( conditions[i].join("") );
+			}
+			buff.append( ") { ");
+			actions.each { a->
+				buff.append( a.expr );
+			}
+			buff.append(" return true; ");
+			buff.append( "}");
+			buff.append( "else { return false; } ");
+		}
+		buff.append( "}");
+		return buff.toString();
+	}
+
+	@ProxyMethod
+	public def getConsumptionRateRules() {
+		def list = ruleEm.find( [ruleset: "waterworkscomputation", rulegroup: "initial", state: "DEPLOYED"]).orderBy("salience DESC").list();
+		def result = [];
+		for( o in list ) {
+			def r = ruleMgmt.open( [objid: o.objid] );
+			def m = [rulename: r.name, salience:r.salience, script:buildRuleText(r)];
+			result << m;
+		}
+		return result;
+	}
+
+	@ProxyMethod
+	public def getBillingRules() {
+		def list = ruleEm.find( [ruleset: "waterworksbilling", rulegroup: "computefee", state: "DEPLOYED"]).orderBy("salience DESC").list();
+		def result = [];
+		for( o in list ) {
+			def r = ruleMgmt.open( [objid: o.objid] );
+			def m = [rulename: r.name, salience: r.salience, script: buildRuleText(r)];
+			result << m;
+		}
+		return result;
+	}
+
+
+}

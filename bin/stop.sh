@@ -8,6 +8,8 @@ cd $BASE_DIR/appserver/etracs && docker-compose down
 
 cd $BASE_DIR/appserver/epayment && docker-compose down
 
+cd $BASE_DIR/appserver/waterworks && docker-compose down
+
 
 cd $BASE_DIR/system/etracs-web && docker-compose down
 

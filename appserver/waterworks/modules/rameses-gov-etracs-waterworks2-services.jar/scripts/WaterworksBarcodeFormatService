@@ -1,0 +1,18 @@
+import com.rameses.annotations.*;
+import com.rameses.rules.common.*;
+import waterworks.facts.*;
+
+class WaterworkBarcodeFormatService  {
+	
+	@Service("Var")
+	def sysVar;
+
+	@ProxyMethod
+	public def formatBillBarcode(def billno) {
+		if(!sysVar.waterworks_bill_barcode_prefix) return null;
+		def r = sysVar.waterworks_bill_barcode_prefix + ":" + billno;
+		return r;
+	}
+
+
+}

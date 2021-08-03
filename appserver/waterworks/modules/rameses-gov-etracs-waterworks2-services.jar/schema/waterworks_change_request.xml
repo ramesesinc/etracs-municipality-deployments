@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="waterworks_change_request">
+		<field name="objid" primary="true" prefix="WCHGREQ" />
+		<field name="controlno" required="true" />
+		<field name="apptype" required="true" />
+		<field name="dtcreated" required="true" />
+		<field name="acctid" required="true" />
+		<field name="acctinfoid" required="true" />
+		<field name="newacctinfoid" required="true" />
+		<field name="reason" required="true" />
+		<field name="taskid" />
+	</element>
+</schema>

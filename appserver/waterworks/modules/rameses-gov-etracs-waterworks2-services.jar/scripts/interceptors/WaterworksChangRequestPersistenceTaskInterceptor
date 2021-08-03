@@ -1,0 +1,117 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+
+class WaterworksChangeRequestPersistenceTaskInterceptor {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("ControlnoGeneratorService")
+    def controlNoSvc;
+
+	@Service("Var")
+	def var;
+
+	@DataContext("waterworks_account")
+	def acctEm;
+
+	@DataContext("vw_waterworks_account")
+	def vwAcctEm;
+
+	@DataContext("waterworks_account_info")
+	def acctInfoEm;
+
+	@DataContext("waterworks_change_request")
+	def changeRequestEm;
+
+	@DataContext("vw_waterworks_change_request")
+	def vwChangeRequestEm;
+
+	@DataContext("waterworks_change_request_task")
+	def changeRequestTaskEm;
+
+	@DataContext("waterworks_consumption")
+	def consEm;
+
+	@DataContext("waterworks_meter")
+	def meterEm;
+
+	@DataContext('waterworks_account_attribute') 
+	def attributeEm;
+
+	@Before(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_change_request'}")
+	void beforeCreateChangeRequest( evt ) {
+		def p = evt.args[0]; 
+		def pattern = var.waterworks_change_request_controlno_format;
+		if(!pattern) throw new Exception("Please specify waterworks_change_request_controlno_format in sys_var");
+		p.controlno = controlNoSvc.getNextNo(pattern);
+		//create the new account info
+		def newInfo = acctInfoEm.find( [objid: p.acctinfoid ] ).first();
+		newInfo.remove("objid");
+		newInfo.putAll( p.newaccount );
+		newInfo = acctInfoEm.create( newInfo );
+
+		p.newacctinfoid = newInfo.objid;
+	}
+
+	@After(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_change_request'}")
+	void afterCreateChangeRequest( evt ) {
+		def result = evt.result; 
+		def wf = [:];
+		wf.processname = 'waterworks_change_request';
+		wf.refid = result.objid;
+		wf.startdate = dateSvc.serverDate;
+		taskSvc.start( wf );
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'waterworks_change_request'}")
+	void beforeRemoveChangeRequest( evt ) {
+		def p = evt.args[0];
+		def cr = vwChangeRequestEm.find( [objid: p.objid] ).first();
+		if( cr.task.state!='draft') throw new Exception("Change request can only be deleted at draft state");
+		changeRequestEm.find( [objid: p.objid]  ).update( [newacctinfoid: "{NULL}", taskid: "{NULL}"])
+		acctInfoEm.find( [objid: cr.newacctinfoid ]).delete();
+		changeRequestTaskEm.find( [refid: cr.objid ]).delete();
+	}
+
+	@After(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_change_request' && args[0].action == 'approve'  }")
+	public void afterApproveChangeRequest( evt ) {
+		def p = evt.args[0]; 
+		def cr = vwChangeRequestEm.find( [objid: p.refid] ).first();
+		if( cr.apptype == "CHANGE_METER") {
+			def vwAcct = vwAcctEm.find([objid: cr.acctid ] ).first();
+			if( !vwAcct.bill?.year ) throw new Exception("There must be an active bill for the account");
+			if( !vwAcct.bill.state == 'OPEN' ) throw new Exception("The active bill must not be OPEN");
+
+			def wc = [:];
+			wc.txnmode = "ONLINE";
+			wc.acctid = cr.acctid;
+			wc.meterid = cr.newaccount.meterid;
+			wc.meter = cr.newaccount.meter;
+			wc.reading = 0;
+			wc.volume = 0;
+			wc.amount = 0;
+			wc.hold = 0;
+			wc.year = vwAcct.bill.year;
+			wc.month = vwAcct.bill.month;
+			consEm.create( wc );
+			//update old meter currentacctid 
+			meterEm.find( [objid: cr.account.meterid]).update( [currentacctid : "{NULL}"] );
+			meterEm.find( [objid: cr.newaccount.meterid]).update( [currentacctid : cr.acctid ] );			
+		}
+		else if( cr.apptype == "CHANGE_ATTRIBUTES") {
+			attributeEm.find( [parentid: cr.acctid ] ).delete();
+			cr.newaccount.attributes?.each {
+				def m = [:];
+				m.objid = cr.acctid + "-" + it;
+				m.parentid = cr.acctid;
+				m.attribute = [name: it];
+				attributeEm.create( m );
+			}
+		}
+		acctEm.find( [objid: cr.acctid ] ).update( [acctinfoid: cr.newacctinfoid ] );
+	}
+} 

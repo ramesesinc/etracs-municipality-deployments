@@ -1,0 +1,74 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+import java.text.*;
+
+class WaterworksBillStatementReportInterceptor {
+	
+	@DataContext("vw_waterworks_bill")
+	def vwBillEm;
+
+	@DataContext("waterworks_billitem")
+	def billItemEm;
+
+	@DataContext("waterworks_payment")
+	def pmtEm;
+
+	@DataContext("waterworks_consumption")
+	def consumptionEm;
+
+	@Service("WaterworksBillStatementService")
+	def statementSvc;
+
+	@Service("Var")
+	def sysVar;
+
+	@Service("WaterworksBarcodeFormatService")
+	def barcodeSvc;
+
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid.matches('waterworks_(bill|statement)') }")
+	public void getStatementReport( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+
+		def bill = vwBillEm.find( [objid: t.txnid] ).first();
+
+		def expanded = false;
+		if( t.reportid == "waterworks_statement" ) expanded = true;
+
+		def res = statementSvc.getBillDetails( [objid: bill.objid, include_unposted: false, expanded: expanded ] );
+
+		bill.barcode =  barcodeSvc.formatBillBarcode(bill.billno);
+		bill.amount = res.totalamount;
+		bill.totalamount = res.totalamount;		
+		bill.details = res.details;
+
+		bill.volume = bill.consumption.volume;
+		bill.reading = bill.consumption.reading;
+		bill.prevreading = bill.consumption.prev.reading;
+		bill.readingdate = bill.consumption.readingdate;
+		bill.reader = bill.consumption.reader;
+
+		if( t.reportid == "waterworks_bill" ) {
+			bill.history = [];
+			consumptionEm.find([acctid: bill.acctid]).orderBy("year DESC, month DESC").limit(12).list()?.each {
+				def m = [:];
+				m.monthindex = (it.year*12)+it.month;
+				m.monthyear = it.year + " " + it.monthname;
+				m.category = "A";
+				m.volume = it.volume;
+				bill.history << m;
+			}
+			bill.history = bill.history.sort{ it.monthindex };
+			bill.averageconsumption = 0;
+			if(bill.history) {
+				def avlist = bill.history.findAll{ it.volume > 0};
+				if(avlist) {
+					bill.averageconsumption = (int)( avlist.sum{it.volume} / avlist.size());
+				}
+			};			
+		} 
+		result.data = [bill];
+	}
+
+} 

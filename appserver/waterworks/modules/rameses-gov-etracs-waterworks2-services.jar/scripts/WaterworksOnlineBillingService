@@ -1,0 +1,45 @@
+import com.rameses.annotations.*; 
+
+class WaterworksOnlineBillingService {
+	
+	@Service(value="WaterworksRegularBillingPaymentService")
+	def svc;
+
+	@Service(value="QueryService")
+	def querySvc;
+
+	@ProxyMethod 
+	public def getBilling( param ) {
+		def bill = svc.getBilling( [id: param.refno] );
+		def m = [_schemaname:"vw_waterworks_bill"];
+		m.findBy = [objid: bill.billid];
+		def b = querySvc.findFirst( m );
+		bill.putAll( b );
+		return bill;
+	} 
+
+	@ProxyMethod
+	public def verifyPayment(  def param ) {
+		return svc.getBilling( [id: param.refno] );
+	}
+
+	@ProxyMethod
+	public void postPayment( def eor, def bill ) {
+		def o = [:];
+		o.reftype = 'eor';
+		o.objid = eor.objid; 
+		o.receiptno = eor.receiptno; 
+		o.receiptdate = eor.receiptdate;
+		o.billitems = bill.billitems;
+		o.billid = bill.billid;
+		o.pmttxntype = bill.pmttxntype;
+		o.amount = bill.amount;
+		svc.postPayment( o ); 
+	}
+
+	@ProxyMethod
+	public def getEmailAttachments( def o ) {
+		return [];
+	}
+
+}
