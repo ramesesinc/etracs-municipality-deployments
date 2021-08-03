@@ -37,3 +37,6 @@ services:
       - ./dev_modules/etracs:/services/modules/etracs
       - ./dev_modules/enterprise:/services/modules/enterprise
       - ./dev_modules/entity:/services/modules/entity
+
+      ## retain rptis version 2.5.03.02.01
+      - ./dev_modules/rptis:/services/modules/rptis
