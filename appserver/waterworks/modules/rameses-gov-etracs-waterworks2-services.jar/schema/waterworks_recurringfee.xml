@@ -13,7 +13,13 @@
 		<field name="startmonth" required="true"/>
 		<field name="amount" required="true" type="decimal"/>
 		<field name="amtbilled" required="true" type="decimal"/>
+		<field name="refid" />
+		<field name="reftype" />
 		<field name="state" />
+		<field name="installmentamount" type="decimal"/>
+		<field name="principal" type="decimal"/>
+
+		<field name="term" type="integer"/>
 		<field name="particulars" />
 
 		<field name="balance" expr="amount-amtbilled" type="decimal"/>

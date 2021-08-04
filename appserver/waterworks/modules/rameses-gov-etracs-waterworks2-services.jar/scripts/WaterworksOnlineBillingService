@@ -15,6 +15,7 @@ class WaterworksOnlineBillingService {
 		m.findBy = [objid: bill.billid];
 		def b = querySvc.findFirst( m );
 		bill.putAll( b );
+		bill.txntypename = 'Waterworks';
 		return bill;
 	} 
 

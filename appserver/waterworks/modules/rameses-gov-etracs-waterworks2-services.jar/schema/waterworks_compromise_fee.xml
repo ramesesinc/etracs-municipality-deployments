@@ -11,11 +11,7 @@
 		<field name="amtpaid" required="true"/>
 		<field name="balance" expr="amount-amtpaid"/>
 		<field name="duedate" type="date" />
-		<field name="itemtype"  />		
-		<field name="billid"  />
-		<!-- DRAFT or ACTIVE-->
-		<field name="state"  required="true"/>
-
+		<field name="itemtype"  />
 	</element>
 
 </schema>

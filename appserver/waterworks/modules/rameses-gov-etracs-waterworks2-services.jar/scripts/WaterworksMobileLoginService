@@ -6,10 +6,10 @@ import java.text.*;
 
 class WaterworksLoginService {
 
-	@Service(value="AdminAuthService", connection="local-admin-server")
+	@Service(value="AdminAuthService", connection="admin")
 	def adminSvc;
 
-	@Service(value="UserRoleService", connection="local-admin-server")
+	@Service(value="UserRoleService", connection="admin")
 	def roleSvc;
 
 	@ProxyMethod

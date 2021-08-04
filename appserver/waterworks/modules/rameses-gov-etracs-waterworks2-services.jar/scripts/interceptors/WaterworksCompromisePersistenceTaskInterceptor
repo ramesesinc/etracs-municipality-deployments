@@ -6,8 +6,14 @@ class WaterworksCompromisePersistenceTaskInterceptor {
 	@Service("DateService")
 	def dateSvc;
 
-	@Service("WaterworksRegularBillingPaymentService")
-	def paymentSvc;
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("ControlnoGeneratorService")
+    def controlNoSvc;
+
+	@Service("Var")
+	def var;
 
 	@DataContext("waterworks_account")
 	def acctEm;
@@ -27,8 +33,34 @@ class WaterworksCompromisePersistenceTaskInterceptor {
 	@DataContext("vw_waterworks_compromise")
 	def vwCompromiseEm;
 
-	@DataContext("waterworks_payment")
-	def paymentEm;
+	@Before(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_compromise'}")
+	void beforeCreateCompromise( evt ) {
+		def p = evt.args[0]; 
+		def pattern = var.waterworks_compromise_controlno_format;
+		if(!pattern) throw new Exception("Please specify waterworks_compromise_controlno_format in sys_var");
+		p.controlno = controlNoSvc.getNextNo(pattern);
+	}
+
+	@After(pattern="PersistenceService.create", eval="#{ args[0]._schemaname == 'waterworks_compromise'}")
+	void afterCreateCompromise( evt ) {
+		def p = evt.args[0];
+		def result = evt.result; 
+
+		//save the billitems first
+		p.billitems.each { bi->
+			bi.amtpaid = 0;
+			bi.parentid = result.objid;
+			compromiseBillitemEm.create( bi );
+		}
+		def cnt = compromiseBillitemEm.find([parentid: result.objid]).select("c:{COUNT(*)}").val();
+		//start the workflow
+		def wf = [:];
+		wf.processname = 'waterworks_compromise';
+		wf.refid = result.objid;
+		wf.startdate = dateSvc.serverDate;
+		taskSvc.start( wf );
+
+	}
 
 	@Before(pattern="PersistenceService.removeEntity", eval="#{ args[0]._schemaname == 'waterworks_compromise'}")
 	void beforeRemoveCompromise( evt ) {
@@ -39,7 +71,6 @@ class WaterworksCompromisePersistenceTaskInterceptor {
 		compromiseBillitemEm.find( [parentid: comp.objid]).delete();	
 		compromiseEm.find([objid: comp.objid]).update([taskid: "{NULL}", acctinfoid:"{NULL}"]);
 		compromiseTaskEm.find([refid: comp.objid]).delete();
-		compromiseFeeEm.find([parentid: comp.objid]).where(" state = 'DRAFT' ").delete();		
 	}
 
 	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action== 'send-for-initial-payment' }")
@@ -58,16 +89,8 @@ class WaterworksCompromisePersistenceTaskInterceptor {
 			m.amount = comp.downpayment;
 			m.amtpaid = 0;
 			m.itemtype = "downpayment";
-			m.state = "ACTIVE";
 			compromiseFeeEm.create( m );		
 		}
-	}
-
-	//on sending for payment make sure to activate remaining fees so it can be seen in the payments section
-	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action== 'send-for-payment' }")
-	void beforeSendForPayment( evt ) {
-		def refid = evt.args[0].refid;
-		compromiseFeeEm.find( [parentid: refid] ).where([state:"DRAFT"]).update( [state: "ACTIVE"]);
 	}
 
 	@Before(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action == 'send-for-approval' }")
@@ -80,39 +103,5 @@ class WaterworksCompromisePersistenceTaskInterceptor {
 			}
 		}
 	}
-
-	@After(pattern="WorkflowTaskService.signal", eval="#{ args[0].processname == 'waterworks_compromise' && args[0].action == 'approve' }")
-	void afterApprove( evt ) {
-		def refid = evt.args[0].refid;
-		def task = evt.result;
-		def comp = vwCompromiseEm.find([objid: refid]).first();
-
-		//get the latest bill
-		def billid = acctEm.find( [objid:comp.acctid] ).select("billid").val();
-		if(!billid) throw new Exception("Account does not have a bill yet");
-
-		def c = [:]
-		c.dtapproved =  task.dtcreated;
-		c.objid = comp.objid;
-		c.controlno = comp.controlno;
-        c.amount = comp.amount;
-        c.acctid = comp.acctid;
-        c.billid = billid;
-        c.reftype = "compromise";
-        c.items = [];
-
-		//create a payment object to write it off from the bill; the reference must be the billitem
-		def items = compromiseBillitemEm.find( [parentid: comp.objid] ).list();
-		items.each {
-			def d = [:];
-			d.amount = it.amount;
-			d.refid = it.billitemid;
-			c.items << d;
-		}
-		paymentSvc.postPayment( c );
-	}
-
-
-	
 
 } 

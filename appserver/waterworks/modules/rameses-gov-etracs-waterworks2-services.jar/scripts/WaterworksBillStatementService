@@ -20,50 +20,23 @@ class WaterworksBillStatementService {
 		def bill = vwBillEm.find( [objid: o.objid] ).first();
 
 		def details = [];
-
-		//if expanded is requested, it will display all 
-		def expanded = o.expanded;
-		if(expanded == null) expanded = false;
-
-		if( expanded == true ) {
-			if( bill.balanceforward < 0 ) {
-				def bal = [ particulars: "Advance Payment" ];
-				bal.dr = 0;
-				bal.cr = Math.abs( bill.balanceforward );
-				bal.txndate = bill.period.fromdate;
-				bal.group = "Previous";
-				details <<  bal;
-			}
-			else {
-				def prevItems = billItemEm.getPreviousBillItems( [acctid: bill.acctid, yearmonth: ((bill.year*12)+bill.month) ]);
-				prevItems.each {
-					def bal = [ particulars: it.item.title + " " + it.year + " " + it.monthname ];
-					bal.dr = it.amount;
-					bal.cr = it.amtpaid;
-					bal.txndate = it.txndate;
-					bal.group = "Previous";
-					details << bal;
-				}			
-			}
+		def bal = [ particulars: "Balance Forward" ];
+		if( bill.balanceforward < 0 ) {
+			bal.dr = 0;
+			bal.cr = Math.abs( bill.balanceforward );
 		}
 		else {
-			def bal = [ particulars: "Balance Forward" ];
-			if( bill.balanceforward < 0 ) {
-				bal.dr = 0;
-				bal.cr = Math.abs( bill.balanceforward );
-			}
-			else {
-				bal.dr =bill.balanceforward;			
-				bal.cr = 0;			
-			};
-			bal.txndate = bill.period.fromdate;
-			bal.group = "Previous";
-			details <<  bal;
-		}
+			bal.dr =bill.balanceforward;			
+			bal.cr = 0;			
+		};
+		bal.txndate = bill.period.fromdate;
+		bal.group = "Previous";
+		details <<  bal;
 
-		def include_unposted = o.include_unposted;
-		if( include_unposted == null ) include_unposted = true;
+		boolean include_unposted = true;
+		if(o.include_unposted !=null) include_unposted = o.include_unposted;
 
+		//include billitems only if state is posted so it will not add confusion
 		if( include_unposted == true || bill.state.matches('POSTED|CLOSED')  ) {
 			def billItems = billItemEm.find( [billid: bill.objid ] ).orderBy("item.sortorder ASC").list();
 			billItems.each {
@@ -74,10 +47,15 @@ class WaterworksBillStatementService {
 				}
 				if( it.particulars  ) m.particulars += "("+it.particulars+")" ;
 				m.txndate = it.txndate;
-				if(!m.txndate) m.txndate = bill.billdate;
+				if(!m.txndate) m.txndate = bill.period.billdate;
 				m.dr = it.amount;
 				m.cr = 0;
 				m.group = "Current";
+
+				//this is added to flag the bill that consumption was already posted
+				if( it.item.objid == "WATER_FEE" ) {
+					m.consumption_posted = true;		
+				}
 				details << m;
 			}
 		}
@@ -87,28 +65,18 @@ class WaterworksBillStatementService {
 		//do not include non cash receipt payments
 		def pmtItems = pmtEm.find( [billid: bill.objid ] ).where("voided = 0 ").list();
 		pmtItems.each {
-			if(it.reftype == "cashreceipt" ) {
+			if(it.reftype.toString().matches("cashreceipt|eor")) {
 				def m = [:];
-				m.txndate = it.txndate;
+				m.txndate = it.refdate;
 				m.particulars = "Payment Ref No : " + it.refno;
 				m.dr = 0;
 				m.cr = it.amount;
 				m.group = "Current";
 				details << m;			
 			}
-			else if(it.reftype == "compromise"  ) {
-				def m = [:];
-				m.txndate = it.txndate;
-				m.particulars = "Compromise Agreement No : " + it.refno;
-				m.dr = 0;
-				m.cr = it.amount;
-				m.group = "Current";
-				details << m;
-			}
-
 			if( it.discount != 0 ) {
 				def m = [:];
-				m.txndate = it.txndate;
+				m.txndate = it.refdate;
 				m.particulars = "Discount " + it.refno;
 				m.dr = 0;
 				m.cr = Math.abs(it.discount);
@@ -116,7 +84,6 @@ class WaterworksBillStatementService {
 				details << m;
 			}
 		}
-		details = details.sort{ it.txndate };
 
 		def runbal = 0;
 		details.each {
@@ -145,7 +112,7 @@ class WaterworksBillStatementService {
 		else {
 			throw new Exception("Please pass objid or acctid in WaterworksBillStatementService.getBillInfo")
 		}
-		def bp = [objid: bill.objid, include_unposted: o.include_unposted, expanded: o.expanded ];
+		def bp = [objid: bill.objid, include_unposted: o.include_unposted ];
 		def det = getBillDetails( bp );
 		bill.details = det.details;
 		bill.totalamount = det.totalamount;		

@@ -1,7 +1,7 @@
 app:
 
   env:
-    "waterworks.app.host"    : ${app_server_ip}:8076
+    "waterworks.app.host" : ${app_server_ip}:8076
     "waterworks.app.context" : "enterprise"
 
   modules:

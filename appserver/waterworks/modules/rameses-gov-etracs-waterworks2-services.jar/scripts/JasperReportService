@@ -1,0 +1,52 @@
+import com.rameses.annotations.*;
+import com.rameses.rules.common.*;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JRExporterParameter;
+import net.sf.jasperreports.engine.JasperCompileManager;
+import net.sf.jasperreports.engine.JasperExportManager;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperPrintManager;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.export.JRHtmlExporter;
+import net.sf.jasperreports.engine.util.JRLoader;
+
+
+class JasperReportService  {
+	
+	@ProxyMethod
+	public def generateReport( def o ) {
+		def params = o.params;				
+		def data = o.data;
+		def template = o.template;
+		def modulename = o.modulename;
+		def partnername = o.partnername;
+		def partnergroup = o.partnergroup;
+		def extension = o.extension;
+
+
+
+	}
+
+
+}
+
+class CustomReportClassLoader extends ClassLoader {
+        
+    private String basepath;
+    
+    public  CustomReportClassLoader(String basepath ){
+        this.basepath = basepath;
+        if ( basepath != null && basepath.trim().length() > 0 ) { 
+            this.basepath = basepath + "/"; 
+        } else { 
+            this.basepath = "/"; 
+        } 
+    }
+    public URL getResource(String name) { 
+        URL url = ReportUtil.getResource( this.basepath +  name ); 
+        if ( url != null ) return url; 
+        
+        return getClass().getClassLoader().getResource( this.basepath +  name );
+    }
+} 

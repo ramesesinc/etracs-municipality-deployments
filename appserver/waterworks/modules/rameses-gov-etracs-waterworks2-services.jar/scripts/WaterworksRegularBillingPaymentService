@@ -1,9 +1,6 @@
 import com.rameses.annotations.*;
 import com.rameses.rules.common.*;
 import waterworks.facts.*;
-import com.rameses.util.*;
-import treasury.utils.*;
-import treasury.facts.*;
 
 class WaterworksRegularBillingPaymentService  {
 	
@@ -13,8 +10,8 @@ class WaterworksRegularBillingPaymentService  {
     @Service('WaterworksBillService') 
     def billSvc; 
 
-    @Service("BillingRuleService")
-    def ruleSvc;    
+    @Service("WaterworksBillingRuleService")
+    def ruleSvc;
 
     @Service("NumberService")
     def numSvc;
@@ -24,6 +21,9 @@ class WaterworksRegularBillingPaymentService  {
 
     @DataContext("vw_waterworks_account")
     def vwAcctEm;
+
+    @DataContext("waterworks_itemaccount_mapping")
+    def itemMappingEm;
 
     @DataContext("waterworks_payment")
     def paymentEm;
@@ -39,12 +39,6 @@ class WaterworksRegularBillingPaymentService  {
 
     @DataContext("waterworks_compromise_fee")
     def compromiseFeeEm;
-
-    @DataContext("waterworks_itemaccount")
-    def itemAcctEm;
-
-    @DataContext("waterworks_itemaccount_mapping")
-    def acctMapEm;
 
 	@ProxyMethod
 	public def findTxn( def o ) {
@@ -72,7 +66,7 @@ class WaterworksRegularBillingPaymentService  {
 
         //we need to update the bill first just for surcharges. This should run everytime cash recept 
         if( bill.state == 'POSTED' ) {
-            billSvc.addSurchargeItems( [objid: bill.objid, txndate: o.txndate ] );
+            billSvc.updateBillFees( [objid: bill.objid, txndate: o.txndate ] );
         }
 
         def param = [ acctid : bill.acctid, billid: bill.objid, include_items:true ];
@@ -182,7 +176,7 @@ class WaterworksRegularBillingPaymentService  {
         pmt.refno = rct.receiptno;
         if( !pmt.refno) pmt.refno = rct.refno;
 
-        pmt.reftype = rct.reftype;
+        pmt.reftype = rct.reftype; 
         pmt.refid = rct.objid;
         pmt.amount = rct.amount;
         pmt.voided = 0;
@@ -197,34 +191,20 @@ class WaterworksRegularBillingPaymentService  {
         savePayment( pmt );
     }   
 
-    private void postCompromise( def comp ) {
-        def pmt = [:];
-        pmt.reftype = "compromise";
-        pmt.refdate = comp.dtapproved;
-        pmt.refid = comp.objid;
-        pmt.refno = comp.controlno;
-        pmt.discount = 0;
-        pmt.txnmode = "ONLINE";
-        pmt.remarks = "Compromise Agreement Approval";
-        pmt.amount = comp.amount;
-        pmt.acctid = comp.acctid;
-        pmt.billid = comp.billid;
-        pmt.pmttxntype = "billing"; //this should be billing because payment was made for billing
-        pmt.items = comp.items;
-        pmt.items.each {
-            it.discount = 0;
-            it.reftype = "waterworks_billitem";
-        }
-        savePayment( pmt );
-    }
-
 	@ProxyMethod
 	public void postPayment( def param ) {
         if(!param.billid) throw new Exception("billid required in WaterworksRegularBillingPaymentService.postPayment")
 	    if( param.reftype == "credit" ) postCredit( param );
         else if( param.reftype == "cashreceipt" ) postCashReceipt( param );
-        else if( param.reftype == "eor" ) postCashReceipt( param );        
-        else if( param.reftype == "compromise" ) postCompromise( param );
+
+        else if( param.reftype.toLowerCase() == "eor" ) { 
+            param.txnmode = ( param.txnmode ? param.txnmode : 'ONLINE'); 
+            postCashReceipt( param );
+        } 
+        else { 
+            throw new Exception("reftype '"+ param.reftype +"' payment is not supported"); 
+        } 
+        
         billSvc.updateBillTotals( [objid: param.billid] );
 	}
 
@@ -233,10 +213,6 @@ class WaterworksRegularBillingPaymentService  {
         //check first if we can still void the transaction
         def pmt = paymentEm.find( [objid: o.pmtid  ]).first();
         if(!pmt) throw new Exception("Payment does not exist");
-
-        //check first if the bill is closed. If bill is closed, this cannot be voided anymore.
-        def bs = vwBillEm.find([objid: pmt.billid]).select("state").first();
-        if(bs.state == "CLOSED") throw new Exception("This cannot be voided anymore because the bill is already closed");
 
         paymentEm.find( [objid: pmt.objid] ).update( [voided: 1 ] );
 		def pmtItems = paymentItemEm.find( [parentid:o.pmtid ]).list();
@@ -259,12 +235,37 @@ class WaterworksRegularBillingPaymentService  {
 		}			
 	}
 
+    @ProxyMethod
+    public def getPaymentItems( def o ) {
+        if(!o.acctid) throw new Exception("acctid is required in  WaterworksPaymentService.getPaymentItems");
+
+        def pp = [:];
+        pp.txndate = o.txndate;
+        if(pp.txndate ==null) pp.txndate = dateSvc.getBasicServerDate();
+        pp.txndate = dateSvc.parse("yyyy-MM-dd", pp.txndate );
+
+        pp.account = vwAcctEm.find( [objid: o.acctid ]).first();
+        if(o.billid) o.billid = pp.account.billid;
+
+        if(!o.billid) throw new Exception("billid is required in WaterworksPaymentService.getPaymentItems");
+        pp.bill = vwBillEm.find( [objid: o.billid ]).first();
+
+        pp.amtpaid = o.amtpaid;
+        if( !o.amtpaid ) {
+            pp.amtpaid = pp.bill.totalunpaid;
+        }
+
+        if( pp.include_items == null ) pp.include_items = true;
+        if( o.amtpaid == null || o.amtpaid == 0 ) pp.include_credits = false; 
+
+        return ruleSvc.getPaymentItems( pp );
+    }
 
     //this will automatically apply credits to open items of the previous and current bill. If return value is null, the credit was not applied. 
     //if successful, the new totals will be returned
     @ProxyMethod
     public void applyCredits( def o ) {
-        if(! o.billid ) throw new Exception("billid is required in WaterworksBillService.applyCredits");
+        if(! o.billid ) throw new Exception("billid is required in WaterworksBillService.updateBillFees");
         
         def bill = vwBillEm.find( [objid: o.billid] ).first();
         if( !bill.totalcredits ) return;
@@ -281,7 +282,6 @@ class WaterworksRegularBillingPaymentService  {
         if( creditAmt >= bill.totalunpaid  ) creditAmt = 0;
 
         def pp = [acctid: bill.acctid, amtpaid: creditAmt, billid: bill.objid, txndate:txndate, include_items: false ];
-
         def b = getPaymentItems( pp );
 
         def cr = [:];
@@ -295,145 +295,6 @@ class WaterworksRegularBillingPaymentService  {
         cr.amount = b.amount;  
         postPayment( cr );
     } 
-
-    // ----------------------------------------------------------------------------
-    // This method returns the distributed items after amtpaid is specified
-    // This is called from the ff. areas:
-    //     1. CashReceipt
-    //     2. Apply Credits 
-    //     3. Capture Payment
-    // ----------------------------------------------------------------------------
-    @ProxyMethod
-    public def getPaymentItems( def o ) {
-        if(!o.acctid) throw new Exception("acctid is required in  WaterworksPaymentService.getPaymentItems");
-
-        def txndate = o.txndate;
-        if(txndate ==null) txndate = dateSvc.getBasicServerDate();
-        txndate = dateSvc.parse("yyyy-MM-dd", txndate );
-
-        def acct = vwAcctEm.find( [objid: o.acctid ]).first();
-
-        def billid = (o.billid) ? o.billid : acct.billid; 
-        if(!billid) throw new Exception("billid is required in WaterworksPaymentService.getPaymentItems");
-        def bill = vwBillEm.find( [objid: billid ]).first();
-
-        def amtpaid = o.amtpaid;
-        def include_items = ( o.include_items != null ) ? o.include_items : true;
-        def include_credits = ( o.amtpaid == null || o.amtpaid == 0 ) ? false : true;
-
-        // ------------------------------------------------ 
-        // GET BILL ITEMS. if bill state = OPEN only return the previous bills not the current                          
-        // ------------------------------------------------
-        def ym = (bill.year*12)+bill.month;
-        def whereStmt = null;
-        if( bill.state == 'OPEN' ) {
-            whereStmt = "(amount-amtpaid) > 0 AND ((year*12)+month) < :yearmonth AND ( billid IS NULL OR NOT(billid=:billid) )";
-        }
-        else {
-            whereStmt = "(amount-amtpaid) > 0 AND ((year*12)+month) <= :yearmonth";         
-        }
-
-        def billitems = billItemEm.find( [acctid: acct.objid ] ).where(whereStmt, [yearmonth: ym, billid: bill.objid]).list();      
-        // ------------------------------------------------ 
-        // BUILD FACTS AND RUN PAYMENT DISTRIBUTION RULES                            
-        // ------------------------------------------------
-        def facts = [];
-        facts << new WaterAccount( acct );
-        facts << new WaterBill( bill );
-        facts << new TransactionDate( txndate );
-        acct.attributes.each {
-            facts << new WaterworksAttribute( name: it );
-        }
-        billitems?.each {
-            facts << new WaterBillItem(it);
-        }
-        def req = [rulename:'waterworkspayment'];
-        def fb = new FactBuilder();
-        req.factBuilder = fb;
-        req.factBuilder.facts = facts;
-        req.params = [amtpaid : (o.amtpaid==null)? 0 : o.amtpaid ];
-        ruleSvc.execute(req);
-
-        // ------------------------------------------------ 
-        // FORMAT AND PACK RESULTS                           
-        // ------------------------------------------------
-        def items = [];
-        fb.facts.findAll{ it instanceof WaterBillItem }.each {
-            def m = it.toMap();
-            m.account = m.remove("item");
-            m.item = itemAcctEm.find( [objid: m.billcode ] ).first();
-            m.reftype = "waterworks_billitem";
-            items << m;
-        }
-
-        //check if we need to include credits
-        if( include_credits == true ) {
-            def credit = fb.facts.find{ it instanceof CreditBillItem };
-            if(credit) {
-                def m = [:];
-                m.account = m.remove("item");
-                m.item = itemAcctEm.find( [objid:  credit.billcode ] ).first(); 
-                m.reftype = "waterworks_credit";
-                m.amount = credit.amount;
-                m.discount = 0;
-                m.total = credit.amount;
-                items << m;
-            }
-        } 
-
-        def rctItems = [];
-        if(include_items == true ) {
-            def findAcct = { itm->
-                def vacct = null;
-                if( !itm.account ) {
-                    vacct = acctMapEm.find( [parentid: itm.item.objid] ).first();
-                }
-                else {
-                    vacct = acctMapEm.find( [objid: itm.account.objid ] ).first();
-                }
-                if( !vacct ) 
-                    throw new Exception("Please include a mapping for " + itm.item.objid );
-                return vacct;
-            }
-
-            items.each {
-                it.account = findAcct( it );
-            }
-            def grps = items.groupBy{ it.account };
-            grps.each { k,v->
-                def itm = [:];
-                itm.item = k;
-                itm.amount = v.sum{it.amount};
-                def m1 = v.findAll{ it.year!=null && it.month !=null }.min{ (it.year*12)+it.month };
-                def m2 = v.findAll{ it.year!=null && it.month !=null }.max{ (it.year*12)+it.month };
-                if( m1 && m2 ) {
-                    if( m1.year == m2.year && m1.month == m2.month ) {
-                        itm.remarks = m1.monthname + " " + m1.year; 
-                    }
-                    else {
-                        itm.remarks = m1.monthname + " " + m1.year + " to " + m2.monthname + " " + m2.year; 
-                    }               
-                };
-                rctItems << itm;
-            }
-            fb.facts.findAll{ it instanceof DiscountItem }.each {
-                def m = it.toMap();
-                m.account =  m.remove("item");
-                m.item = [objid: m.billcode ]; 
-
-                def d = [:];
-                d.amount = m.amount;
-                d.item = findAcct( m );
-                rctItems << d; 
-            }
-        }
-
-        def res = [:];
-        res.billitems = items;
-        res.items = rctItems;
-        res.amount = items.sum{ it.amount - Math.abs(it.discount) };
-        return res;
-    }
 
 
 

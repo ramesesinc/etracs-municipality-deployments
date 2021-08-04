@@ -1,0 +1,222 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import waterworks.facts.*;
+import treasury.utils.*;
+import treasury.facts.*;
+
+class WaterworksBillingRuleService {
+
+	@Service("BillingRuleService")
+	def ruleSvc;	
+
+	@Service("WaterworksScheduleService")
+	def skedSvc;
+
+	@DataContext("vw_waterworks_account")
+	def vwAcctEm;
+
+	@DataContext("waterworks_billitem")
+	def billItemEm;
+
+	@DataContext("waterworks_recurringfee")
+	def recurFeeEm;
+
+ 	@DataContext("waterworks_itemaccount")
+	def itemAcctEm;
+
+	@DataContext("waterworks_itemaccount_mapping")
+	def acctMapEm;
+
+	private def buildFacts( def o, def billitems, def recurItems, periods ) {
+		def bill = o.bill;
+		def acct = o.account;
+
+		def facts = [];
+		facts << new WaterAccount( acct );
+
+		if(bill) {
+			facts << new WaterBill( bill );
+			if( bill.consumption?.objid ) {
+				facts << new WaterConsumption( bill.consumption );
+			}	
+		}
+			
+		if( o.txndate ) {
+			facts << new TransactionDate( o.txndate );
+		}
+		//add the periods
+		periods?.each {
+			facts << new WaterBillingPeriod( it );
+		}
+
+		acct.attributes.each {
+			facts << new WaterworksAttribute( name: it );
+		}
+		billitems?.each {
+			def wbi = new WaterBillItem();
+			wbi.objid = it.objid;
+			//refid is used in payments
+			wbi.refid = it.objid;
+			wbi.year = it.year;
+			wbi.month = it.month;
+			wbi.billcode = it.item.objid;
+			wbi.sortorder = it.item.sortorder;
+			wbi.amount = it.amount - it.amtpaid;
+			wbi.principal = it.amount;
+			facts << wbi;	
+		}
+		recurItems?.each {
+			facts << new WaterBillRecurringFee( it );
+		}
+
+		def factBuilder = new FactBuilder();
+		factBuilder.facts = facts;
+		return factBuilder;
+	}
+
+
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		def acct = o.account;
+		def bill = o.bill;
+
+		def ym = (bill.year*12)+bill.month;
+
+		//these are called to calculate the surcharge. Include only items that have balances
+		def pastItems = billItemEm.find( [acctid: acct.objid ] ).where("(amount-amtpaid) > 0 AND ((year*12)+month) < :yearmonth", [yearmonth: ym]).list();
+
+		//for current include all items for the bill whether paid or unpaid. This must be included so we can determine if we need to charge or not. avoid duplicates.
+		def currItems = billItemEm.find( [billid:bill.objid] ).list();
+		def recurItems = recurFeeEm.find( [acctid: acct.objid] ).where("state='ACTIVE' AND (amount-amtbilled) > 0").list();
+		def billsList = (pastItems + currItems);
+
+		def periods = [];
+		def tList = pastItems.collect{ [year:it.year, month:it.month]}.unique();
+		tList.each {
+			it.scheduleid = bill.subarea.schedulegroupid;
+			periods << skedSvc.getSchedule( it ); 
+		}
+		
+		def fb = buildFacts( o, billsList, recurItems, periods );
+		def req = [rulename:'waterworksbilling'];
+		req.factBuilder = fb;
+		req.params = [objid:bill.objid];
+
+		ruleSvc.execute(req);
+		def items = [];
+		fb.facts.findAll{ it instanceof WaterBillItem }.each {
+			items << it.toMap();
+		}
+		def res = [:];
+		res.billitems = items;
+		return res;	
+	}
+
+	@ProxyMethod
+	public def getPaymentItems( def o ) {
+		def acct = o.account;
+		def bill = o.bill;
+		def amtpaid = o.amtpaid;
+		def ym = (bill.year*12)+bill.month;
+
+		//if bill state = OPEN only return the previous bills not the current
+		def billitems = [];
+		def whereStmt = null;
+		if( bill.state == 'OPEN' ) {
+			whereStmt = "(amount-amtpaid) > 0 AND ((year*12)+month) < :yearmonth AND ( billid IS NULL OR NOT(billid=:billid) )";
+		}
+		else {
+			whereStmt = "(amount-amtpaid) > 0 AND ((year*12)+month) <= :yearmonth";			
+		}
+
+		def bitems = billItemEm.find( [acctid: acct.objid ] ).where(whereStmt, [yearmonth: ym, billid: bill.objid]).list();		
+		def fb = buildFacts( o, bitems, null, null );
+
+		def req = [rulename:'waterworkspayment'];
+		req.factBuilder = fb;
+		req.params = [amtpaid : (o.amtpaid==null)? 0 : o.amtpaid ];
+
+		ruleSvc.execute(req);
+
+		def items = [];
+		fb.facts.findAll{ it instanceof WaterBillItem }.each {
+			def m = it.toMap();
+			m.account = m.remove("item");
+			m.item = itemAcctEm.find( [objid: m.billcode ] ).first();
+			m.reftype = "waterworks_billitem";
+			items << m;
+		}
+
+		//check if we need to include credits
+		if( o.include_credits == null  ) o.include_credits = true;
+		if( o.include_credits == true ) {
+			def credit = fb.facts.find{ it instanceof CreditBillItem };
+			if(credit) {
+				def m = [:];
+				m.account = m.remove("item");
+				m.item = itemAcctEm.find( [objid:  credit.billcode ] ).first(); 
+				m.reftype = "waterworks_credit";
+				m.amount = credit.amount;
+				m.discount = 0;
+				m.total = credit.amount;
+				items << m;
+			}
+		} 
+
+		def rctItems = [];
+		if( o.include_items == null ) o.include_items = true;
+		if(o.include_items == true ) {
+			def findAcct = { itm->
+				def vacct = null;
+				if( !itm.account ) {
+					vacct = acctMapEm.find( [parentid: itm.item.objid] ).first();
+				}
+				else {
+					vacct = acctMapEm.find( [objid: itm.account.objid ] ).first();
+				}
+				if( !vacct ) 
+					throw new Exception("Please include a mapping for " + itm.item.objid );
+				return vacct;
+			}
+
+			items.each {
+				it.account = findAcct( it );
+			}
+			def grps = items.groupBy{ it.account };
+			grps.each { k,v->
+				def itm = [:];
+				itm.item = k;
+				itm.amount = v.sum{it.amount};
+				def m1 = v.findAll{ it.year!=null && it.month !=null }.min{ (it.year*12)+it.month };
+				def m2 = v.findAll{ it.year!=null && it.month !=null }.max{ (it.year*12)+it.month };
+				if( m1 && m2 ) {
+					if( m1.year == m2.year && m1.month == m2.month ) {
+						itm.remarks = m1.monthname + " " + m1.year; 
+					}
+					else {
+						itm.remarks = m1.monthname + " " + m1.year + " to " + m2.monthname + " " + m2.year; 
+					}				
+				};
+				rctItems << itm;
+			}
+			fb.facts.findAll{ it instanceof DiscountItem }.each {
+				def m = it.toMap();
+				m.account =  m.remove("item");
+				m.item = [objid: m.billcode ]; 
+
+				def d = [:];
+				d.amount = m.amount;
+				d.item = findAcct( m );
+				rctItems << d; 
+			}
+		}
+
+		def res = [:];
+		res.billitems = items;
+		res.items = rctItems;
+		res.amount = items.sum{ it.amount - Math.abs(it.discount) };
+		return res;
+	}
+
+
+}

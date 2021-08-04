@@ -2,9 +2,6 @@ import com.rameses.annotations.*;
 
 class WaterworksBeginBalanceService {
 
-	@Service("DateService")
-	def dateSvc;
-
 	@Service("WaterworksBillService")
 	def billSvc;
 
@@ -13,7 +10,6 @@ class WaterworksBeginBalanceService {
 
  	@DataContext("waterworks_bill")
 	def billEm;
-
 
 	@ProxyMethod
 	public def getBillBeginBalanceItems( def o ) {
@@ -40,7 +36,6 @@ class WaterworksBeginBalanceService {
 	public def addItem( def o ) {
 		def b = billItemEm.find( [acctid: o.acctid, year: o.year, month: o.month, itemid: o.item.objid ] ).first();
 		if( b ) throw new Exception("Cannot add item because an entry already exists");
-		o.txndate = dateSvc.getServerDate();
 		billItemEm.create( o );
 		if( o.refbillid != null ) {
 			billSvc.updateBeginBalance( [objid:o.refbillid] );

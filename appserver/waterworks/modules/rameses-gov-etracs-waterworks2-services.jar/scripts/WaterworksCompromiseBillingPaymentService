@@ -1,9 +1,6 @@
 import com.rameses.annotations.*;
 import com.rameses.rules.common.*;
 import waterworks.facts.*;
-import com.rameses.util.*;
-import treasury.utils.*;
-import treasury.facts.*;
 
 class WaterworksCompromiseBillingPaymentService  {
 	
@@ -13,26 +10,17 @@ class WaterworksCompromiseBillingPaymentService  {
 	@Service("WorkflowTaskService")
 	def taskSvc;
 
-	@Service("BillingRuleService")
-    def ruleSvc;  
-
 	@DataContext("vw_waterworks_compromise")
     def vwCompromiseEm;
 
     @DataContext("waterworks_compromise_fee")
     def compFeeEm;
 
-	@DataContext("waterworks_itemaccount")
-    def itemAcctEm;
-
  	@DataContext("waterworks_itemaccount_mapping")
     def itemMappingEm;
 
 	@DataContext("waterworks_payment")
 	def paymentEm;
-
-	@DataContext("waterworks_payment_item")
-	def paymentItemEm;
 
 	@ProxyMethod
 	public def findTxn( def o ) {
@@ -43,6 +31,8 @@ class WaterworksCompromiseBillingPaymentService  {
 	@ProxyMethod
 	public def getBilling( def o ) {
 		def comp = vwCompromiseEm.find([controlno: o.id]).first();
+		println "task is " + comp.task.state;
+
         if( !comp.task.state.matches(".*payment"))
             throw new Exception("This application is not yet for payment");
         def acct = comp.account;    
@@ -53,19 +43,17 @@ class WaterworksCompromiseBillingPaymentService  {
         rct.pmttxntype = "compromise";
         rct.items = [];
         rct.compromiseid = comp.objid;
-        rct.taskstate = comp.task.state;
+        rct.billitems = compFeeEm.find([parentid: comp.objid]).where("amount - amtpaid > 0").list();
+        if(!rct.billitems) throw new Exception("There are no billitems found");
 
-        o.compromiseid = comp.objid;
-        o.taskstate = comp.task.state;
-
-        //if initial or downpayment payment, specify amount is not allowed
-        if(o.taskstate == "initial-payment") o.amount = 0;
-
-		def res = getPaymentItems( o );
-		if(!res.billitems) throw new Exception("There are no billitems found");
-
-        rct.billitems = res.billitems;
-       	rct.items = res.items;
+        rct.billitems.each {
+            def mi = itemMappingEm.find([parentid: it.itemid]).first();
+            if(!mi) throw new Exception("There is no item mapping for " + it.itemid);
+            def pt = [:];
+            pt.item = [objid:mi.objid, code:mi.code, title:mi.title, fund: mi.fund];
+            pt.amount = it.amount;
+            rct.items << pt;
+        }
         return rct;
 	}
 
@@ -86,106 +74,30 @@ class WaterworksCompromiseBillingPaymentService  {
 		pmt.pmttxntype = rct.pmttxntype;
 		pmt.txndate = dateSvc.getServerDate();
 
-		pmt.items = rct.billitems.findAll{ it.reftype == "waterworks_compromise_fee" };
-		pmt.items.each {
-			it.compromisefeeid = it.refid; 
-		}
 		pmt = paymentEm.create( pmt );
-
-		//post payment to each fee
-		pmt.items.each {
-			compFeeEm.find([objid: it.refid]).update([amtpaid: "{amtpaid + :amt}"], [amt: it.amount ] );
-		}
-
-		//check if there is balance. If there is no balance, fire the post-payment
-		def bal = compFeeEm.find( [parentid: rct.compromiseid ] ).select("c:{SUM(amount-amtpaid)}").val();
-
-		if( bal!=null && bal == 0 ) {
-			//update also workflow to move it from payment
-			def wf = [:];
-			wf.processname = 'waterworks_compromise';
-			wf.refid = rct.compromiseid;
-			wf.startdate = dateSvc.serverDate;
-			wf.action = "post-payment";
-			taskSvc.signal( wf );		
-		}
+		compFeeEm.find( [parentid: rct.compromiseid ] ).update( [amtpaid: "{amount}"] );
+		//update also workflow to move it from payment
+		def wf = [:];
+		wf.processname = 'waterworks_compromise';
+		wf.refid = rct.compromiseid;
+		wf.startdate = dateSvc.serverDate;
+		wf.action = "post-payment";
+		taskSvc.signal( wf );		
 	}
 
 	@ProxyMethod
 	public void voidPayment(def o ) {
-        def pmt = paymentEm.find( [objid: o.pmtid  ]).first(1);
+        def pmt = paymentEm.find( [objid: o.pmtid  ]).first();
         if(!pmt) throw new Exception("Payment does not exist");
-		pmt.items.each {
-			compFeeEm.find([objid: it.refid]).update([amtpaid: "{amtpaid - :amt}"], [amt: it.amount ] );
-		};
-
-		//after changing payment to void we should delete the payment items so it will not add confusion
+        if(!pmt.compromiseid ) throw new Exception("voidPayment error. compromiseid is null in waterworks_payment");
 		paymentEm.find( [objid: pmt.objid] ).update( [voided: 1 ] );
-		paymentItemEm.find( [parentid: pmt.objid ] ).delete();
-
-		//find the compromise and check the current state. If state is still in payment, do not signal
-		def comp = vwCompromiseEm.find( [objid: pmt.compromiseid] ).first();
-
-		if(comp!=null && comp.task.state != 'payment' ) {
-			def wf = [:];
-			wf.processname = 'waterworks_compromise';
-			wf.refid = pmt.compromiseid;
-			wf.startdate = dateSvc.serverDate;
-			wf.action = "void-payment";
-			taskSvc.signal( wf );			
-		}
-	}
-
-	private def getPaymentItems( def o ) {
-		def billitems = compFeeEm.find([parentid: o.compromiseid]).where("amount - amtpaid > 0 AND state='ACTIVE' ").orderBy("duedate").list();
-		if(!billitems) throw new Exception("There are no items for payment. Please check state or balance");
-
-		def facts = [];
-		int i = 0;
-		billitems.each {
-			def bi = new BillItem();
-			bi.refid = it.objid;
-			bi.billcode = it.itemid;
-			bi.duedate = it.duedate;
-			bi.sortorder = i++;
-			bi.amount = it.amount - it.amtpaid;
-			bi.remarks = it.particulars;
-			bi.setPaypriority( i );
-			facts << bi;
-		}
-
-		def req = [rulename:'waterworkspayment'];
-        def fb = new FactBuilder();
-        req.factBuilder = fb;
-        req.factBuilder.facts = facts;
-        req.params = [amtpaid : (o.amtpaid==null)? 0 : o.amtpaid ];
-        ruleSvc.execute(req);
-
-        def bitems = [];
-        fb.facts.findAll{ it instanceof BillItem }.each {
-        	def m = it.toMap();
-            m.account = m.remove("item");
-            m.item = itemAcctEm.find( [objid: m.billcode ] ).first();
-            m.reftype = "waterworks_compromise_fee";
-            m.discount = 0;
-            bitems << m;
-        }
-
-		def rctItems = [];
- 		bitems.each {
-            def mi = itemMappingEm.find([parentid: it.billcode]).first();
-            if(!mi) throw new Exception("There is no item mapping for " + it.billcode);
-            def pt = [:];
-            pt.item = [objid:mi.objid, code:mi.code, title:mi.title, fund: mi.fund];
-            pt.amount = it.amount;
-            pt.remarks = it.remarks;
-            rctItems << pt;
-        }
-
-		def res = [:];
-		res.billitems = bitems;
-        res.items = rctItems;
-		return res;
+		compFeeEm.find( [parentid: pmt.compromiseid ] ).update( [amtpaid: 0] );
+		def wf = [:];
+		wf.processname = 'waterworks_compromise';
+		wf.refid = pmt.compromiseid;
+		wf.startdate = dateSvc.serverDate;
+		wf.action = "void-payment";
+		taskSvc.signal( wf );	
 	}
 
 
