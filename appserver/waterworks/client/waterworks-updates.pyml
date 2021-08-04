@@ -5,6 +5,6 @@ app:
     "waterworks.app.context" : "enterprise"
 
   modules:
-    - { file: "modules/waterworks/rameses-gov-etracs-waterworks2.jar" , version: 1.17, order: 300 }
-    - { file: "modules/waterworks/rameses-gov-etracs-waterworks2-report.jar" , version: 1.06, order: 300 }
-    - { file: "modules/waterworks/tagbilaran-waterworks-reports.jar" , version: 2.05, order: 0 }
+    - { file: "modules/waterworks/rameses-gov-etracs-waterworks2.jar" , version: 1.18, order: 300 }
+    - { file: "modules/waterworks/rameses-gov-etracs-waterworks2-report.jar" , version: 1.07, order: 300 }
+    - { file: "modules/waterworks/tagbilaran-waterworks-reports.jar" , version: 2.06, order: 0 }
