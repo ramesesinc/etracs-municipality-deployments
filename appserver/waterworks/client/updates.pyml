@@ -5,4 +5,4 @@ app:
     "waterworks.app.context" : "enterprise"
 
   modules:
-    - { file: "modules/waterworks/rameses-gov-etracs-waterworks-collection.jar" , version: 1.4, order: 300 }
+    - { file: "modules/waterworks/rameses-gov-etracs-waterworks-collection.jar" , version: 1.04, order: 300 }
