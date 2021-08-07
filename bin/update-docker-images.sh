@@ -18,5 +18,5 @@ docker pull ramesesinc/etracs-web:2.5.02.01
 echo ""
 docker pull ramesesinc/etracs-server-municipality:2.5.04.01.01
 echo ""
-docker pull ramesesinc/local-epayment-server:2.5.01.02.05
+docker pull ramesesinc/local-epayment-server:2.5.01.02.06
 echo ""
