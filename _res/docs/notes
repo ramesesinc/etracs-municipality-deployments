@@ -1,31 +1,31 @@
 [Docker Server]
-IP  : 192.168.2.10
-User: lgusipocot
-Pass: p@ssword#
+IP  : localhost
+User: 
+Pass: 
 
 
 [DB Access]
-IP   : 192.168.2.12
+IP   : localhost
 User : root
-Pass : p@ssw0rd#
+Pass : 1234
 
 
 [Webmin]
-URL  : https://192.168.2.10:10000
-User : lgusipocot
-Pass : p@ssword#
+URL  : https://localhost:10000
+User : 
+Pass : 
 
 
 [Portainer]
-URL  : http://192.168.2.10:9000
+URL  : http://localhost:9000
 User : admin
 Pass : p@ssw0rd
 
 
 [Samba]
-URL  : \\192.168.2.10
-User : lgusipocot
-Pass : p@ssw0rd
+URL  : \\localhost
+User : 
+Pass : 
 
 
 [DockerHub Images]
@@ -34,13 +34,12 @@ docker pull ramesesinc/mail-server:latest
 docker pull ramesesinc/notification-server:1.0
 docker pull ramesesinc/queue-server:2.5.02.01
 docker pull ramesesinc/gdx-proxy-server:v002
-docker pull ramesesinc/gdx-client:1.03.01
+docker pull ramesesinc/gdx-client:1.04.01
 docker pull ramesesinc/etracs-web:2.5.02.01
 docker pull ramesesinc/node-download-server:0.0.3
-docker pull ramesesinc/etracs-server-municipality:2.5.04.01.01
 docker pull ramesesinc/local-epayment-server:2.5.01.02.06
-docker pull ramesesinc/local-market-server:v001
+docker pull ramesesinc/etracs-server-municipality:2.5.04.02.01
 
 
 [GitHub]
-git clone -b camsur-sipocot https://github.com/ramesesinc/etracs-municipality-deployments.git
+git clone https://github.com/ramesesinc/etracs-municipality-deployments.git
