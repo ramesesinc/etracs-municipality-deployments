@@ -1306,6 +1306,7 @@ delete from rptbill_ledger where billid in (
 );
 
 delete from rptbill where expirydate < '2021-07-01'
+;
 
 /* v2.5.04.032-03012 */
 INSERT INTO `sys_usergroup` (`objid`, `title`, `domain`, `userclass`, `orgclass`, `role`) VALUES ('RPT.MANAGEMENT', 'MANAGEMENT', 'RPT', NULL, NULL, 'MANAGEMENT');
@@ -6287,11 +6288,6 @@ delete from sys_wf_node where processname = 'batchgr'
 ;
 
 
-alter table sys_wf_node 
-	add tracktime int,
-	add ui text,
-	add properties text;
-
 INSERT INTO `sys_wf_node` (`name`, `processname`, `title`, `nodetype`, `idx`, `salience`, `domain`, `role`, `properties`, `ui`, `tracktime`) VALUES ('start', 'batchgr', 'Start', 'start', '1', NULL, 'RPT', NULL, NULL, NULL, NULL);
 INSERT INTO `sys_wf_node` (`name`, `processname`, `title`, `nodetype`, `idx`, `salience`, `domain`, `role`, `properties`, `ui`, `tracktime`) VALUES ('assign-receiver', 'batchgr', 'For Review and Verification', 'state', '2', NULL, 'RPT', 'RECEIVER', NULL, NULL, NULL);
 INSERT INTO `sys_wf_node` (`name`, `processname`, `title`, `nodetype`, `idx`, `salience`, `domain`, `role`, `properties`, `ui`, `tracktime`) VALUES ('receiver', 'batchgr', 'Review and Verification', 'state', '5', NULL, 'RPT', 'RECEIVER', NULL, NULL, NULL);
@@ -6320,7 +6316,6 @@ INSERT INTO `sys_wf_node` (`name`, `processname`, `title`, `nodetype`, `idx`, `s
 INSERT INTO `sys_wf_node` (`name`, `processname`, `title`, `nodetype`, `idx`, `salience`, `domain`, `role`, `properties`, `ui`, `tracktime`) VALUES ('end', 'batchgr', 'End', 'end', '1000', NULL, 'RPT', NULL, NULL, NULL, NULL);
 
 alter table sys_wf_transition 
-	add ui text,
 	add caption varchar(255);
 
 INSERT INTO `sys_wf_transition` (`parentid`, `processname`, `action`, `to`, `idx`, `eval`, `properties`, `permission`, `caption`, `ui`) VALUES ('start', 'batchgr', '', 'assign-receiver', '1', NULL, NULL, NULL, NULL, NULL);
@@ -8006,10 +8001,6 @@ INSERT INTO `sys_ruleset_fact` (`ruleset`, `rulefact`) VALUES ('bldgassessment',
 INSERT INTO `sys_ruleset_fact` (`ruleset`, `rulefact`) VALUES ('rptrequirement', 'TxnAttributeFact');
 
 
-alter table sys_rule 
-	add _ukey varchar(255),
-	add noloop int;
-
 INSERT INTO `sys_rule` (`objid`, `state`, `name`, `ruleset`, `rulegroup`, `title`, `description`, `salience`, `effectivefrom`, `effectiveto`, `dtfiled`, `user_objid`, `user_name`, `noloop`, `_ukey`) VALUES ('RUL-128a4cad:146f96a678e:-7e52', 'DEPLOYED', 'COMPUTE_AV', 'landassessment', 'ASSESSEDVALUE', 'COMPUTE AV', NULL, '50000', NULL, NULL, '2014-12-16 12:59:22', 'USR7e15465b:14a51353b1a:-7fb7', 'ADMIN', '1', '');
 INSERT INTO `sys_rule` (`objid`, `state`, `name`, `ruleset`, `rulegroup`, `title`, `description`, `salience`, `effectivefrom`, `effectiveto`, `dtfiled`, `user_objid`, `user_name`, `noloop`, `_ukey`) VALUES ('RUL-1a2d6e9b:1692d429304:-7779', 'DEPLOYED', 'BASIC_AND_SEF', 'rptledger', 'LEDGER_ITEM', 'BASIC_AND_SEF', NULL, '50000', NULL, NULL, '2019-02-27 12:48:06', 'USR-12b70fa0:16929d068ad:-7e8e', 'LANDTAX', '1', '');
 
@@ -8110,9 +8101,6 @@ INSERT INTO `sys_rule_deployed` (`objid`, `ruletext`) VALUES ('RULec9d7ab:166235
 INSERT INTO `sys_rule_deployed` (`objid`, `ruletext`) VALUES ('RULec9d7ab:166235c2e16:-3c17', '\npackage rptbilling.AGGREGATE_PREVIOUS_ITEMS;\nimport rptbilling.*;\nimport java.util.*;\nimport com.rameses.rules.common.*;\n\nglobal RuleAction action;\n\nrule \"AGGREGATE_PREVIOUS_ITEMS\"\n  agenda-group \"BEFORE_SUMMARY\"\n salience 60000\n  no-loop\n when\n    \n    \n     CurrentDate (  CY:year ) \n    \n    RLI: rptis.landtax.facts.RPTLedgerItemFact (  year < CY,qtrly == true  ) \n   \n    BILL: rptis.landtax.facts.Bill (  forpayment == false  ) \n   \n  then\n    Map bindings = new HashMap();\n   \n    bindings.put(\"CY\", CY );\n    \n    bindings.put(\"RLI\", RLI );\n    \n    bindings.put(\"BILL\", BILL );\n    \n  Map _p0 = new HashMap();\n_p0.put( \"rptledgeritem\", RLI );\naction.execute( \"aggregate-bill-item\",_p0,drools);\n\nend\n\n\n ');
 INSERT INTO `sys_rule_deployed` (`objid`, `ruletext`) VALUES ('RULec9d7ab:166235c2e16:-4197', '\npackage rptbilling.DISCOUNT_ADVANCE;\nimport rptbilling.*;\nimport java.util.*;\nimport com.rameses.rules.common.*;\n\nglobal RuleAction action;\n\nrule \"DISCOUNT_ADVANCE\"\n  agenda-group \"DISCOUNT\"\n salience 40000\n  no-loop\n when\n    \n    \n     CurrentDate (  CY:year ) \n    \n    RLI: rptis.landtax.facts.RPTLedgerItemFact (  year > CY,TAX:amtdue ) \n   \n  then\n    Map bindings = new HashMap();\n   \n    bindings.put(\"CY\", CY );\n    \n    bindings.put(\"RLI\", RLI );\n    \n    bindings.put(\"TAX\", TAX );\n    \n  Map _p0 = new HashMap();\n_p0.put( \"rptledgeritem\", RLI );\n_p0.put( \"expr\", (new ActionExpression(\"@ROUND(TAX * 0.20)\", bindings)) );\naction.execute( \"calc-discount\",_p0,drools);\n\nend\n\n\n ');
 INSERT INTO `sys_rule_deployed` (`objid`, `ruletext`) VALUES ('RULec9d7ab:166235c2e16:-5fcb', '\npackage rptbilling.SPLIT_QTR;\nimport rptbilling.*;\nimport java.util.*;\nimport com.rameses.rules.common.*;\n\nglobal RuleAction action;\n\nrule \"SPLIT_QTR\"\n  agenda-group \"INIT\"\n salience 50000\n  no-loop\n when\n    \n    \n     CurrentDate (  CY:year ) \n    \n    RLI: rptis.landtax.facts.RPTLedgerItemFact (  year >= CY ) \n   \n  then\n    Map bindings = new HashMap();\n   \n    bindings.put(\"CY\", CY );\n    \n    bindings.put(\"RLI\", RLI );\n    \n  Map _p0 = new HashMap();\n_p0.put( \"rptledgeritem\", RLI );\naction.execute( \"split-by-qtr\",_p0,drools);\n\nend\n\n\n  ');
-
-
-alter table sys_rule_fact add factsuperclass varchar(255);
 
 INSERT INTO `sys_rule_fact` (`objid`, `name`, `title`, `factclass`, `sortorder`, `handler`, `defaultvarname`, `dynamic`, `lookuphandler`, `lookupkey`, `lookupvalue`, `lookupdatatype`, `dynamicfieldname`, `builtinconstraints`, `domain`, `factsuperclass`) VALUES ('CurrentDate', 'CurrentDate', 'Current Date', 'CurrentDate', '1', '', '', NULL, '', '', '', '', '', '', 'LANDTAX', NULL);
 INSERT INTO `sys_rule_fact` (`objid`, `name`, `title`, `factclass`, `sortorder`, `handler`, `defaultvarname`, `dynamic`, `lookuphandler`, `lookupkey`, `lookupvalue`, `lookupdatatype`, `dynamicfieldname`, `builtinconstraints`, `domain`, `factsuperclass`) VALUES ('rptis.bldg.facts.BldgAdjustment', 'rptis.bldg.facts.BldgAdjustment', 'Building Adjustment', 'rptis.bldg.facts.BldgAdjustment', '10', NULL, 'ADJ', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'RPT', NULL);
@@ -8605,8 +8593,6 @@ INSERT IGNORE INTO `sys_rule_fact_field` (`objid`, `parentid`, `name`, `title`, 
 INSERT IGNORE INTO `sys_rule_fact_field` (`objid`, `parentid`, `name`, `title`, `datatype`, `sortorder`, `handler`, `lookuphandler`, `lookupkey`, `lookupvalue`, `lookupdatatype`, `multivalued`, `required`, `vardatatype`, `lovname`) VALUES ('RPTTxnInfoFact.txntypemode', 'RPTTxnInfoFact', 'txntypemode', 'Txn Type Mode', 'string', '2', 'lov', NULL, NULL, NULL, NULL, NULL, NULL, 'string', 'RPT_TXN_TYPE_MODES');
 INSERT IGNORE INTO `sys_rule_fact_field` (`objid`, `parentid`, `name`, `title`, `datatype`, `sortorder`, `handler`, `lookuphandler`, `lookupkey`, `lookupvalue`, `lookupdatatype`, `multivalued`, `required`, `vardatatype`, `lovname`) VALUES ('TxnAttributeFact.attribute', 'TxnAttributeFact', 'attribute', 'Attribute', 'string', '2', 'lookup', 'faastxnattributetype:lookup', 'attribute', 'attribute', NULL, NULL, '1', 'string', NULL);
 INSERT IGNORE INTO `sys_rule_fact_field` (`objid`, `parentid`, `name`, `title`, `datatype`, `sortorder`, `handler`, `lookuphandler`, `lookupkey`, `lookupvalue`, `lookupdatatype`, `multivalued`, `required`, `vardatatype`, `lovname`) VALUES ('TxnAttributeFact.txntype', 'TxnAttributeFact', 'txntype', 'Txn Type', 'string', '1', 'string', NULL, NULL, NULL, NULL, NULL, '0', 'string', NULL);
-
-alter table sys_rule_condition add notexist int;
 
 INSERT IGNORE INTO `sys_rule_condition` (`objid`, `parentid`, `fact_name`, `fact_objid`, `varname`, `pos`, `ruletext`, `displaytext`, `dynamic_datatype`, `dynamic_key`, `dynamic_value`, `notexist`) VALUES ('RC-17442746:16be936f033:-7e86', 'RUL483027b0:16be9375c61:-77e6', 'rptis.landtax.facts.RPTLedgerItemFact', 'rptis.landtax.facts.RPTLedgerItemFact', 'RLI', '0', NULL, NULL, NULL, NULL, NULL, '0');
 INSERT IGNORE INTO `sys_rule_condition` (`objid`, `parentid`, `fact_name`, `fact_objid`, `varname`, `pos`, `ruletext`, `displaytext`, `dynamic_datatype`, `dynamic_key`, `dynamic_value`, `notexist`) VALUES ('RC16a7ee38:15cfcd300fe:-7fba', 'RUL-79a9a347:15cfcae84de:-55fd', 'rptis.facts.RPUAssessment', 'rptis.facts.RPUAssessment', 'RA', '0', NULL, NULL, NULL, NULL, NULL, '0');
@@ -9355,22 +9341,5 @@ drop view if exists vw_landtax_lgu_account_mapping
 ;
 
 CREATE VIEW `vw_landtax_lgu_account_mapping` AS select `ia`.`org_objid` AS `org_objid`,`ia`.`org_name` AS `org_name`,`o`.`orgclass` AS `org_class`,`p`.`objid` AS `parent_objid`,`p`.`code` AS `parent_code`,`p`.`title` AS `parent_title`,`ia`.`objid` AS `item_objid`,`ia`.`code` AS `item_code`,`ia`.`title` AS `item_title`,`ia`.`fund_objid` AS `item_fund_objid`,`ia`.`fund_code` AS `item_fund_code`,`ia`.`fund_title` AS `item_fund_title`,`ia`.`type` AS `item_type`,`pt`.`tag` AS `item_tag` from (((`itemaccount` `ia` join `itemaccount` `p` on((`ia`.`parentid` = `p`.`objid`))) join `itemaccount_tag` `pt` on((`p`.`objid` = `pt`.`acctid`))) join `sys_org` `o` on((`ia`.`org_objid` = `o`.`objid`))) where (`p`.`state` = 'ACTIVE')
-;
-
-
-CREATE TABLE `cashreceipt_rpt_share_forposting` (
-  `objid` varchar(50) NOT NULL,
-  `receiptid` varchar(50) NOT NULL,
-  `rptledgerid` varchar(50) NOT NULL,
-  `txndate` datetime NOT NULL,
-  `error` int(255) NOT NULL,
-  `msg` text,
-  PRIMARY KEY (`objid`),
-  UNIQUE KEY `ux_receiptid_rptledgerid` (`receiptid`,`rptledgerid`),
-  KEY `fk_cashreceipt_rpt_share_forposing_rptledger` (`rptledgerid`),
-  KEY `fk_cashreceipt_rpt_share_forposing_cashreceipt` (`receiptid`),
-  CONSTRAINT `fk_cashreceipt_rpt_share_forposing_cashreceipt` FOREIGN KEY (`receiptid`) REFERENCES `cashreceipt` (`objid`),
-  CONSTRAINT `fk_cashreceipt_rpt_share_forposing_rptledger` FOREIGN KEY (`rptledgerid`) REFERENCES `rptledger` (`objid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
 
