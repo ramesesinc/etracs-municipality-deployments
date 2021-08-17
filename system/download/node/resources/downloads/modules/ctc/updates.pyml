@@ -1,0 +1,6 @@
+app:
+
+   env:
+
+   modules:
+      - { order: 260, version: 2.01, file: "modules/ctc/rameses-gov-etracs-ctc.jar" }
