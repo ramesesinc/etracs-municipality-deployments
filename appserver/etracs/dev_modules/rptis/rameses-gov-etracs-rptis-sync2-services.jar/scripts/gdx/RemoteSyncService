@@ -1,0 +1,26 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import com.rameses.services.extended.*;
+import java.text.*;
+
+public class RemoteSyncDataService {
+
+	@Service(value="RPTMainSyncDataService")
+	def svc;
+
+	@Service(value="RPTMainSyncService")
+	def oldSvc;
+
+	@ProxyMethod
+	public def receive(syncdata) {
+		return svc.receive(syncdata)
+	}
+
+	@ProxyMethod
+	public def createSyncMeta(syncdata) {
+		return oldSvc.createSyncMeta(syncdata)
+	}
+
+
+}

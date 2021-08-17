@@ -1,0 +1,18 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import com.rameses.services.extended.*;
+import java.text.*;
+
+public class RemoteActivationService {
+
+	@Service(value="RPTMainSyncService")
+	def svc;
+
+
+	@ProxyMethod
+	public def activate(org) {
+		return svc.activate(org)
+	}
+
+}
