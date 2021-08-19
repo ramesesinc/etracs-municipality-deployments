@@ -3,3 +3,7 @@ version: "3"
 services:
 
    etracs-server:
+      volumes:
+         ## mounted RPTIS version etracs25-server-municipality:255.02.007
+         - ./dev_modules/rptis:/services/modules/rptis
+         - ./dev_modules/rptis/module.conf:/services/apps/etracs25/modules.conf.d/rptis.conf
