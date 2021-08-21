@@ -17,7 +17,6 @@ services:
       - ../../_custom/env.conf
     ports:
       - "8000:80"
-      - "80:80"
     volumes:
       - ./nginx/_src:/_src
       - ./nginx/_src/conf.d:/etc/nginx/conf.d
