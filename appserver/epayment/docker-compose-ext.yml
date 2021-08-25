@@ -3,5 +3,3 @@ version: "3"
 services:
 
    epayment-server:
-      volumes:
-         - ../../_res/lib/mysql-connector-java-8.0.23.jar:/apps/server/lib/mysql-connector-java-5.1.46.jar
