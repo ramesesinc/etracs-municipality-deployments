@@ -1,29 +1,29 @@
 [Docker Server]
-IP  : 192.168.250.77
+IP  : 192.168.100.49
 User: sanjosedb
 Pass: sjdb2021
 
 
 [DB Access]
-IP   : 192.168.250.77
+IP   : 192.168.100.49
 User : root
 Pass : P@ssw0rd#
 
 
 [Webmin]
-URL  : https://192.168.250.77:10000
+URL  : https://192.168.100.49:10000
 User : <Same access to Docker Server>
 Pass : <Same access to Docker Server>
 
 
 [Portainer]
-URL  : http://192.168.250.77:9000
+URL  : http://192.168.100.49:9000
 User : admin
 Pass : p@ssw0rd
 
 
 [Samba]
-URL  : \\192.168.250.77
+URL  : \\192.168.100.49
 User : sanjosedb
 Pass : p@ssw0rd
 
