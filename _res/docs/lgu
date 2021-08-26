@@ -7,7 +7,7 @@ Pass: c@tigbian
 [DB Access]
 IP   : 192.168.4.107
 User : root
-Pass : 1234
+Pass : c@tigbian
 
 
 [Webmin]
