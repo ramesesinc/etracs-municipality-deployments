@@ -2894,3 +2894,7 @@ where (
 
 
 drop view if exists vw_entityrelation;
+
+
+INSERT INTO `sys_var` (`name`, `value`, `description`, `datatype`, `category`) 
+VALUES ('liquidate_remittance_as_of_date', '1', 'Liquidate Remittance up to date', 'checkbox', 'TC');
