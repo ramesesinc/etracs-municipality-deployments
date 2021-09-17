@@ -7,13 +7,13 @@ Pass:
 [DB Access]
 IP   : localhost
 User : root
-Pass : 1234
+Pass : P@ssw0rd#
 
 
 [Webmin]
 URL  : https://localhost:10000
-User : 
-Pass : 
+User : <Same access of Docker Server>
+Pass : <Same access of Docker Server>
 
 
 [Portainer]
@@ -25,7 +25,7 @@ Pass : p@ssw0rd
 [Samba]
 URL  : \\localhost
 User : 
-Pass : 
+Pass : p@ssw0rd
 
 
 [DockerHub Images]
@@ -38,7 +38,7 @@ docker pull ramesesinc/gdx-client:1.04.01
 docker pull ramesesinc/etracs-web:2.5.02.01
 docker pull ramesesinc/node-download-server:0.0.3
 docker pull ramesesinc/local-epayment-server:2.5.01.02.06
-docker pull ramesesinc/etracs-server-municipality:2.5.04.02.01
+docker pull ramesesinc/etracs-server-municipality:2.5.04.03.01
 
 
 [GitHub]
