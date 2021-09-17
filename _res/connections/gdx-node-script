@@ -3,5 +3,5 @@
 #----------------------------------------
 provider=node-script
 host=18.214.40.20:3000
-channel=00001
+channel=${channel}
 timeout=60000
