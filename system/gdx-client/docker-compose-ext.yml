@@ -2,7 +2,11 @@ version: "3"
 
 services:
 
-  gdx-proxy-server:
+   gdx-proxy-server:
+      volumes:
+         - ./dev/conf.d:/etc/nginx/conf.d
 
 
-  gdx-client:
+   gdx-client:
+      volumes:
+         - ./dev/app.conf:/apps/gdx/app.conf
