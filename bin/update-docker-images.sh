@@ -12,7 +12,7 @@ docker pull ramesesinc/queue-server:2.5.02.01
 echo ""
 docker pull ramesesinc/gdx-proxy-server:v002
 echo ""
-docker pull ramesesinc/gdx-client:1.04.01
+docker pull ramesesinc/gdx-client:1.04.03
 echo ""
 docker pull ramesesinc/etracs-web:2.5.02.01
 echo ""
