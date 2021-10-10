@@ -1,0 +1,155 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import enterprise.utils.*;
+import java.rmi.server.*;
+import com.rameses.rules.common.*;
+import java.text.*;
+import vehicle.facts.*;
+
+public class VehicleAssessmentService  {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("vehicle_application")
+	def appEm;
+
+
+	@DataContext("vehicle_application_fee")
+	def feeEm;	
+
+	@DataContext("vehicle_application_info")
+	def infoEm;	
+
+	@DataContext("vehicle_unit_info")
+	def unitInfoEm;	
+
+
+	@DataContext("vehicle_itemaccount")
+ 	def itemAcctEm;	
+
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@Service("VehicleBillingService")
+	def vehicleBillingSvc;
+
+
+	void saveBillItems( def appid, def items ) {
+		feeEm.find( [appid: appid]).delete();
+
+		def itemMap = [:];
+		def findAcct = { id->
+			if(!itemMap.containsKey(id)) {
+				itemMap.put( id, itemAcctEm.find( [objid:id]).first());
+			}
+			return itemMap.get(id);
+		}
+		items.each {
+			def m = [:];
+			m.item = findAcct( it.billcode );
+			m.year = it.year;
+			m.amount = it.amount;
+			m.amtpaid = 0;
+			m.appid = appid;
+			feeEm.create( m );
+		}
+	}
+
+	void saveInfos( def appid, def infos ) {
+		infoEm.find( [appid: appid]).delete();
+		infos.each {
+			def m = [:];
+			m.appid = appid;
+			m.name = it.name;
+			if( it.datatype == 'boolean' ) m.booleanvalue = it.value;
+			else if( it.datatype == 'decimal' ) m.decimalvalue = it.value;
+			else if( it.datatype == 'integer' ) m.intvalue = it.value;
+			else if( it.datatype == 'boolean' ) m.booleanvalue = it.value;			
+			else it.stringvalue = m.value;
+			m.type = [objid: it.name];
+			infoEm.create( m );
+		}
+	}
+
+	void fixInfos(  def infos  ) {
+		infos.each {
+			if( it.value ==null ) return;
+			if( it.datatype == 'boolean' ) it.booleanvalue = it.value;
+			else if( it.datatype == 'decimal' ) it.decimalvalue = it.value;
+			else if( it.datatype == 'integer' ) it.intvalue = it.value;
+			else if( it.datatype == 'boolean' ) it.booleanvalue = it.value;			
+			else it.stringvalue = m.value;
+		}
+	}
+
+	@ProxyMethod
+	public def execute( def req ) {
+		def app = appEm.find( [objid: req.params.appid ] ).first();
+		int start_renew_year = app.appyear; 
+
+		//find the last year renewed
+		if(app.apptype == 'RENEW') {
+			def xu = [xappid: app.objid]
+			def last = appEm.find( [franchiseid: app.franchise.objid ] ).where( "NOT(objid = :xappid) AND apptype IN ('NEW','RENEW') AND task.state ='end' ", xu ).orderBy("appyear DESC").first();
+			if(last.appyear < (app.appyear-1) ) {
+				start_renew_year = last.appyear + 1;
+			}			
+		}
+
+		//run the rules first to test the infos
+		def facts = [];
+		facts << new vehicle.facts.VehicleApplication( app );
+		facts << new vehicle.facts.VehicleFranchise( app );;
+		facts << new vehicle.facts.VehicleUnit( app.unit );
+		facts << new vehicle.facts.VehicleAssessYear( year: app.appyear );
+
+		if( start_renew_year != app.appyear ) {
+			(start_renew_year..(app.appyear-1)).each {
+				facts << new VehicleAssessYear( year: it );
+			} 
+		}
+
+		//add the vehicle unit infos to evaluate for assessment
+		def unitInfos = unitInfoEm.find( [unitid: app.unit.objid ]  ).list();
+		unitInfos.each {
+			if( it.field.datatype == "decimal" && it.decimalvalue!=null ) facts << new VehicleDecimalInfo( name: it.field.name,  value: it.decimalvalue );
+			else if( it.field.datatype == "integer" && it.intvalue!=null ) facts << new VehicleIntegerInfo( name: it.field.name, value: it.intvalue );
+			else if( it.field.datatype == "boolean" && it.booleanvalue !=null ) facts << new VehicleBooleanInfo( name: it.field.name, value: it.booleanvalue );	
+			else if( it.field.datatype == "date" && it.datevalue!=null ) facts << new VehicleDateInfo( name: it.field.name, value: it.datevalue );	
+			else if( it.field.datatype.matches("string|text") && it.stringvalue!=null) facts << new VehicleStringInfo( name: it.field.name, value: it.stringvalue );			
+		}
+
+		req.factBuilder = new treasury.utils.FactBuilder();
+		req.factBuilder.variableInfoProvider = new DefaultVariableInfoProvider(
+			schemaName:"vehicle_variable"
+		);
+
+		req.factBuilder.facts.addAll( facts );
+		req.billdate = dateSvc.getServerDate();
+
+		//fix the variables before executing:
+		if( req.params.infos ) fixInfos( req.params.infos );
+
+		def res = billingRuleSvc.execute(req);
+		if(res.askinfos) return res;
+
+		saveInfos( app.objid, res.infos );
+		saveBillItems( app.objid, res.billitems );
+
+		//update the date assessed
+		appEm.find( [objid:app.objid ] ).update( [dtassessed: req.billdate ] );
+
+		return [
+			infos: [],
+			billitems: res.billitems
+		]
+	}
+
+	@ProxyMethod
+	public def getItems( def o ) {
+		return feeEm.where( "appid = :appid", [appid: o.appid ] ).orderBy("year, item.sortorder" ).list();
+	}
+
+
+}

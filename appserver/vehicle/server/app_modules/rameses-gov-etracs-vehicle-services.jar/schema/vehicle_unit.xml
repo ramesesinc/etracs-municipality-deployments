@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="vehicle_unit">
+		<field name="objid" primary="true" prefix="VUNIT"/>
+		<field name="franchiseid" required="true"/>		
+	</element>
+</schema>

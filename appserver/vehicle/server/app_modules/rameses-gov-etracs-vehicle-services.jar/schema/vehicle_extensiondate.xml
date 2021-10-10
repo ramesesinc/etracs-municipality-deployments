@@ -1,0 +1,9 @@
+<schema>
+	<element tablename="vehicle_extensiondate">
+		<field name="objid" primary="true" prefix="VDT"/>
+		<field name="vehicletypeid"  required="true"/>
+		<field name="month" type="integer"  caption="Month" required="true"/>
+		<field name="year" type="integer"  caption="Year" required="true"/>
+		<field name="date" type="date" caption="Date" required="true"/>
+	</element>
+</schema>

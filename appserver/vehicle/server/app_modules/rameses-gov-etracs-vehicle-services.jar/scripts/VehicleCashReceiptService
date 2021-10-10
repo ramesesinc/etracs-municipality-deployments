@@ -1,0 +1,42 @@
+import com.rameses.annotations.*;
+
+
+public class VehicleCashReceiptService {
+	
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@Service("VehicleBillingService")
+	def billingSvc;
+
+	@DataContext("vehicle_itemaccount")
+	def itemAcct;
+
+	@Service("NumberService")
+	def numSvc;
+
+	@ProxyMethod
+	public def getBilling( pp ) {
+		def param = pp.params;
+		if ( !param ) throw new Exception('params argument is required in VehicleBillingService'); 
+
+		if ( !param?.id ) throw new Exception('id parameter is required in VehicleBillingService'); 
+		if ( !param?.action ) throw new Exception('action parameter is required in VehicleBillingService'); 
+
+		def app = appEm.find([ appno: param.id ]).where(" task.state = 'payment' ").first();
+		if ( !app ) app = appEm.find([ franchiseid: param.id ]).where(" task.state = 'payment' ").first(); 
+		if ( !app ) throw new Exception('Transaction not found or is not yet available for payment');  
+
+		// compute bill items 
+		def res = billingSvc.getBillItems( [appid: app.objid, include_items: true, amtpaid: param.amtpaid ] );
+
+		def resp = [items: res.items, billitems: res.billitems ]; 
+		resp.app = [appid: app.objid ];
+		resp.payer = app.account.owner;
+		resp.paidby = app.account.owner?.name  +  ' (' + app.franchise.controlno + ')';
+		resp.paidbyaddress = app.account.owner?.address?.text; 
+
+		return resp; 
+	}
+
+}

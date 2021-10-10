@@ -1,0 +1,12 @@
+<schema>
+	<element tablename="vehicle_itemaccount">
+		<field name="objid" primary="true" visible="true" hidden="false"  searchable="true"/>
+		<field name="title"  searchable="true"/>
+		<field name="item_objid" />
+		<field name="item_code" caption="Acct Code"/>		
+		<field name="item_title" caption="Acct Title"/>
+		<field name="item_fund_objid" caption="Fund Code"/>		
+		<field name="sortorder" type="integer"/>		
+	</element>
+</schema>
+

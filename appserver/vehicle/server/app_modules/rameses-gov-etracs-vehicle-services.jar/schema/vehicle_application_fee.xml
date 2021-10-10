@@ -1,0 +1,16 @@
+<schema>
+	<element tablename="vehicle_application_fee">
+		<field name="objid" primary="true" prefix="VAPPFEE"/>
+		<field name="appid" required="true"/>
+
+		<field name="year" required="true" type="integer"/>
+		<field name="amount" required="true" type="decimal"/>
+		<field name="amtpaid" required="true" type="decimal"/>
+		<field name="balance" expr="amount - amtpaid" />
+
+		<complex name="item" ref="vehicle_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>	
+
+	</element>
+</schema>

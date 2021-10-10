@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="vehicle_payment" autopost="true">
+		<field name="objid" primary="true" prefix="VPMT"/>
+		<field name="appid" required="true" />
+		<field name="remarks" />		
+		<field name="txnmode" required="true" defaultValue="CAPTURE"/>
+		<field name="amount" required="true" />
+		<field name="voided" required="true" />
+		<field name="refid" />
+		<field name="reftype" required="true" />
+		<field name="refno" required="true" />
+		<field name="refdate" required="true" />
+		<field name="txndate" required="true" />
+		<complex name="items" ref="vehicle_payment_item" jointype="one-to-many">
+			<key field="objid" target="parentid" />
+		</complex>	
+	</element>
+
+</schema>
