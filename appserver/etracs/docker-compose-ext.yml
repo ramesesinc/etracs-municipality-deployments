@@ -5,3 +5,6 @@ services:
    etracs-server:
       volumes:
          - ./dev_modules/bpls:/services/modules/bpls
+
+         ## mounted RPTIS from build 255.02.007
+         - ./dev_modules/rptis:/services/modules/rptis

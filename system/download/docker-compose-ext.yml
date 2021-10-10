@@ -9,3 +9,6 @@ services:
 
 
    download-node-server:
+      volumes:
+         ## mounted RPTIS from build 255.02.007
+         - ../../appserver/etracs/dev_client/rptis:/apps/server/public/resources/downloads/modules/rptis
