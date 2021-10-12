@@ -27,6 +27,10 @@ class VehiclePrintReportInterceptor {
 	@Service(value="EntityFinderService", connection="entity")
 	def entityFinder;
 
+	@Service( dynamic=true ) 
+	def dynaSvc; 
+
+
 	void loadUnit( def unit ) {
 		def infos = unitInfoEm.find( [unitid: unit.objid ] ).list();
 		infos.each {
@@ -70,6 +74,14 @@ class VehiclePrintReportInterceptor {
 		loadOwnerInfo( app );
 		loadUnit( app.unit );
 		result.data = app;
+
+		if ( app.permit?.objid ) {
+			app.permit = permitEm.find([ objid: app.permit.objid ]).first();
+
+			def userSvc = dynaSvc.lookup('UserService', 'admin'); 
+			def user = userSvc.open([ objid: app.permit.issuedby?.objid.toString() ]); 
+			if ( user ) app.permit.issuedby.title = user.jobtitle; 
+		}
 	}
 
 	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'vehicle_billing' }")
@@ -95,7 +107,11 @@ class VehiclePrintReportInterceptor {
 		def permitid = t.parameters.permitid;
 		
 		def perm = permitEm.find( [objid: permitid ]).first();
-		if(!perm) throw new Exception("Permit does not exist");
+		if (!perm) throw new Exception("Permit does not exist");
+
+		def userSvc = dynaSvc.lookup('UserService', 'admin'); 
+		def user = userSvc.open([ objid: perm.issuedby?.objid.toString() ]); 
+		if ( user ) perm.issuedby.title = user.jobtitle; 
 
 		def app = appEm.find([objid: perm.appid]).first();
 		loadOwnerInfo(app);
