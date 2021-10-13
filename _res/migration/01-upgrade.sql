@@ -5497,3 +5497,30 @@ set
 where 
   aa.objid = bb.objid 
 ; 
+
+
+
+
+alter table sys_org add txncode varchar(5) null
+;
+
+CREATE TABLE `religion` (
+  `objid` varchar(50) NOT NULL DEFAULT '',
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `citizenship` (
+  `objid` varchar(50) NOT NULL DEFAULT '',
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+alter table entity_address add `text` varchar(255) null 
+;
+alter table entity_address add constraint fk_entity_address_parentid 
+  foreign key (parentid) references entity (objid)
+; 
+
+alter table remittance add remarks varchar(255) null 
+;
