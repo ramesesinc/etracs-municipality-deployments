@@ -1,0 +1,82 @@
+import com.rameses.annotations.*;
+import java.rmi.server.UID;
+import vehicle.facts.*;
+
+class VehiclePermitService {
+	
+	@Env
+	def env;	
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("vehicle_permit")
+	def permitEm;
+
+	@DataContext("vehicle_franchise")
+	def franchiseEm;
+
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@ProxyMethod 
+	public def create( def perm ) { 
+		def app = appEm.find([objid: perm.appid]).first();
+		if( !perm.permitno ) {
+			def pttn = app.franchise.vehicletype.permitnopattern;
+			if( !pttn )
+					throw new Exception("Please specify permitnopattern in vehicletype");
+			perm.permitno = controlNoSvc.getNextNo( pttn );
+		}
+		if(!perm.dtissued) {
+			perm.dtissued = dateSvc.getServerDate();
+		}
+		if(!perm.permittype) perm.permittype = "STANDARD";
+		perm.state = "ACTIVE";
+		perm.issuedby = [objid: env.USERID, name: env.FULLNAME ];
+
+		def d = getDates( app );
+		perm.expirydate = d.expirydate;
+		perm = permitEm.create( perm );
+
+		def upd = [:];
+		upd.permitid = perm.objid;
+
+		if(d.nextfranchiserenewaldate) upd.nextfranchiserenewaldate = d.nextfranchiserenewaldate;
+
+		//update the franchise also
+		franchiseEm.find( [objid: app.franchise.objid ] ).update( upd );
+
+		return perm;
+	}
+
+	@ProxyMethod
+	public def getDates( def app ) {
+		def req = [rulename: "vehicledates", params: [appdate:app.appdate]];
+		req.factBuilder = new treasury.utils.FactBuilder();
+		def appFact = new VehicleApplication(app);
+
+		req.factBuilder.facts << appFact;
+		def res = billingRuleSvc.execute(req);
+
+		//DO NOT CHANGE it must be permitexpirydate (not expirydate)!
+		def expdate = req.factBuilder.facts.find{ (it instanceof treasury.facts.VarDate) && it.tag == 'permitexpirydate' };
+		if( !expdate) throw new Exception("There is no rule that will return permitexpirydate");
+		def nextfranchiserenewaldate = req.factBuilder.facts.find{ (it instanceof treasury.facts.VarDate) && it.tag == 'nextfranchiserenewaldate' };
+
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def m = [:];
+		m.expirydate = df.format( expdate.date );
+		if( nextfranchiserenewaldate ) m.nextfranchiserenewaldate = df.format(  nextfranchiserenewaldate.date );
+
+		return m;
+	}
+	
+
+}

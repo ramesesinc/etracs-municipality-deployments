@@ -1,0 +1,28 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class VehicleDriverPersistenceInterceptor {
+	
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+
+	@DataContext("vehicletype")
+	def vehicleTypeEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'vehicle_driver' }")
+	public void beforeCreateDriver( def evt ) {
+		def entity = evt.args[0];
+		if(!entity.controlno) {
+			def vt = vehicleTypeEm.find( [objid: entity.vehicletype.objid ]).first();
+			def pttn = vt.drivernopattern;
+			if(!pttn) throw new Exception("Please define a drivernopattern");
+			entity.controlno = controlNoSvc.getNextNo( pttn );
+		}
+	}
+
+
+}

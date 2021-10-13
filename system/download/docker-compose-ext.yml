@@ -2,4 +2,13 @@ version: "3"
 
 services:
 
+   download-nginx-server:
+      ports:
+         - "85:80"
+
+
+
    download-node-server:
+      volumes:
+         ## mounted RPTIS from build 255.02.007
+         - ../../appserver/etracs/dev_client/rptis:/apps/server/public/resources/downloads/modules/rptis

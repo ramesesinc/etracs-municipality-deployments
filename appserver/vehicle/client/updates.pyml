@@ -1,0 +1,10 @@
+app:
+
+  env:
+    "vehicle.app.host" : "${app_server_ip}:8072"
+    "vehicle.app.context" : "enterprise"
+
+  modules:
+    - { order: 280, version: 1.01, file: "modules/vehicle/rameses-gov-etracs-vehicle-collection.jar" }
+    - { order: 281, version: 1.02, file: "modules/vehicle/rameses-gov-etracs-vehicle-dalaguete.jar" }
+    - { order: 282, version: 1.05, file: "modules/vehicle/rameses-gov-etracs-vehicle.jar" }

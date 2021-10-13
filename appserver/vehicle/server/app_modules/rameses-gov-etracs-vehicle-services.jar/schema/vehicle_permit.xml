@@ -1,0 +1,16 @@
+<schema>
+	<element tablename="vehicle_permit">
+		<field name="objid" primary="true" prefix="VPERM"/>
+		<field name="state" required="true"/>		
+		<field name="appid" required="true"/>
+
+		<field name="permitno" required="true" caption="Permit No"/>
+		<field name="permittype" required="true"/>
+		<field name="dtissued" required="true"/>
+		<field name="issuedby_objid" required="true"/>
+		<field name="issuedby_name" required="true"/>
+		<field name="txnmode" required="true"/>
+		<field name="remarks" />
+		<field name="expirydate" type="date"/>		
+	</element>
+</schema>

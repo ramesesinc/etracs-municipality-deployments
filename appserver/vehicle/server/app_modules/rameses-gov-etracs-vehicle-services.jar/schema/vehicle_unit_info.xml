@@ -1,0 +1,18 @@
+<schema>
+	<element tablename="vehicle_unit_info">
+		<field name="objid" primary="true" prefix="VAPPINFO"/>
+		<field name="unitid" required="true"/>
+		<field name="stringvalue" />
+		<field name="decimalvalue" type="decimal"/>
+		<field name="intvalue" type="integer"/>
+		<field name="datevalue"  type="date"/>
+		<field name="booleanvalue"  type="integer"/>
+
+		<complex name="field" ref="vehicletype_field" jointype="many-to-one">
+			<key field="fieldid" target="objid" />
+		</complex>	
+
+	</element>
+</schema>
+
+

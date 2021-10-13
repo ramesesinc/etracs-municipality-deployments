@@ -6,3 +6,6 @@ services:
       volumes:
          - ./dev_modules/bpls:/services/modules/bpls
          - ./dev_modules/rules:/services/modules/rules
+
+         ## mounted RPTIS from build 255.02.007
+         - ./dev_modules/rptis:/services/modules/rptis

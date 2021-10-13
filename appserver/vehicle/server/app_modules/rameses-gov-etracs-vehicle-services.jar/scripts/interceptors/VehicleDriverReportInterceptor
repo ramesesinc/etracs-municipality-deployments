@@ -1,0 +1,17 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class VehiclePermitReportInterceptor {
+		
+	@DataContext("vehicle_driver")
+	def driverEm;
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'vehicle_driver' }")
+	public void getPermitData( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+		def driverid = t.parameters.driverid;
+		result.data = driverEm.find( [objid: driverid ] ).first();
+	}
+
+}

@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="vehicle_driver_franchise">
+		<field name="objid" primary="true" prefix="VDRVRFRAN" />
+		<field name="driverid" required="true" />
+
+		<complex name="franchise" ref="vehicle_franchise" jointype="many-to-one" includefields="controlno,account.*,unit.*">
+			<key field="franchiseid" target="objid" />
+		</complex> 
+
+	</element>
+</schema>		
