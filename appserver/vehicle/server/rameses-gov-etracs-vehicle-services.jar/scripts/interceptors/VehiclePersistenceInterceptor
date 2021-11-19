@@ -1,0 +1,64 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class VehiclePersistenceInterceptor {
+	
+	@DataContext("vehicle_permit")
+	def permitEm;
+
+	@DataContext("vehicle_unit_info")
+	def unitInfoEm;
+
+	void loadUnit( def unit ) {
+		def infos = unitInfoEm.find( [unitid: unit.objid ] ).list();
+		infos.each {
+			def val = null;
+			if(it.field.datatype == "decimal") val = it.decimalvalue;
+			else if(it.field.datatype == "integer") val = it.intvalue;
+			else if(it.field.datatype == "date") val = it.datevalue;
+			else if(it.field.datatype == "boolean") val = it.booleanvalue;
+			else val = it.stringvalue;
+			unit.put( it.field.name, val );
+		}
+	}
+
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname=='vehicle_application'}")
+	public void loadApplicationInfo( def evt ) {
+		def app = evt.result;
+		if( app.apptype.matches('NEW|RENEW') && app.task.state.matches('release|end') ) {
+			def perm = permitEm.find( [appid: app.objid ]).first();
+			if(perm) app.permit = perm; 
+		}
+		loadUnit( app.unit ); 		//load the unit
+	}
+
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname=='vehicle_franchise'}")
+	public void loadFranchiseInfo( def evt ) {
+		def fran = evt.result;
+		loadUnit( fran.unit ); 			//load the unit
+	}
+
+	@After(pattern="QueryService.getList", eval="#{ args[0]._schemaname=='vehicle_application_info'}")
+	public void loadAppInfos( def evt ) {
+		def list = evt.result;
+		list.each {
+			if( it.type.datatype == 'boolean' ) {
+				it.value = (it.booleanvalue == 1) ? true : false;
+			}
+			else if( it.type.datatype == 'integer' ) {
+				it.value = it.intvalue;
+			}
+			else if( it.type.datatype == 'decimal' ) {
+				it.value = it.decimalvalue;
+			}
+			else if(it.type.datatype == 'date' ) {
+				it.value = it.datevalue;
+			}
+			else {
+				it.value = it.stringvalue;
+			}
+		}
+	}
+
+
+}

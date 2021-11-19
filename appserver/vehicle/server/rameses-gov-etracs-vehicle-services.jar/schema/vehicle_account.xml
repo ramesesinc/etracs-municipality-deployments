@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="vehicle_account">
+		<field name="objid" primary="true" prefix="VACCT"/>
+		<field name="franchiseid" required="true"/>
+
+		<field name="owner_objid" required="true" />
+		<field name="owner_type" required="true" />
+		<field name="owner_name" required="true" caption="Owner Name" searchable="true" indexed="true"/>
+		<field name="owner_address_text" required="true" />
+		<field name="owner_address_objid" required="true" />
+		<field name="contact_phoneno" />
+		<field name="contact_mobileno" />
+		<field name="contact_email" />
+		<field name="lastfranchisedatepaid" />
+
+		<field name="barangay_objid" required="true"/>
+		<field name="barangay_name" required="false" caption="Barangay"/>
+		<field name="supersederid" />
+
+	</element>
+</schema>

@@ -1,0 +1,39 @@
+import com.rameses.annotations.*;
+
+class WorkflowNotificationInterceptor {
+
+    @XConnection('socketio')
+    def socketio;
+
+    void notify( def data ) {
+        def event = data.processname;
+        def packet = [:];
+        packet.processname = data.processname;
+        packet.refid = data.refid;
+        packet.taskid = data.taskid;
+        socketio.send(event, packet);
+    }
+
+	@After( pattern="WorkflowTaskService.start", index=10000 ) 
+	public void onStartTask( evt ) {  
+		def params = evt.args[0]; 
+		def ntask = evt.result;
+		notify( ntask );
+	} 
+
+	@After( pattern="WorkflowTaskService.signal", index=10000 ) 
+	public void onSignalTask( evt ) {  
+		def params = evt.args[0]; 
+		def ntask = evt.result;
+		notify( ntask );
+	} 
+
+	@After( pattern="WorkflowTaskService.assignToMe", index=10000 ) 
+	public void onAfterAssignToMe( evt ) {  
+		def params = evt.args[0]; 
+		def ntask = evt.result;
+		notify( ntask );
+	} 
+
+
+}

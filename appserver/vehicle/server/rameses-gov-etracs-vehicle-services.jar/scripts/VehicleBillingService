@@ -1,0 +1,95 @@
+import com.rameses.annotations.*;
+
+public class VehicleBillingService {
+	
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@DataContext("vehicle_application_fee")
+	def feeEm;
+
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@DataContext("vehicle_itemaccount")
+	def itemAcct;
+
+	@Service("NumberService")
+	def numSvc;
+
+	@ProxyMethod
+	public def getBillItems( pp ) {
+		if( !pp.appid ) 
+			throw new Exception("appid is required in billing");
+
+		def sel = "billcode:{item.objid},amount:{amount-amtpaid},sortorder:{item.sortorder},account_objid:{item.item.objid},account_title:{item.item.title},account_code:{item.item.code},account_fund_objid:{item.item.fund.objid},refid:{objid},year";	
+		def items = feeEm.select(sel).where( "appid = :appid AND amount-amtpaid > 0 ", [appid: pp.appid ] ).orderBy("year, item.sortorder" ).list();
+		
+		def assessedYears = items*.year.unique();
+
+		def req = [rulename: 'vehiclebilling', params: [appid: pp.appid] ];
+		if( pp.include_items ) req.include_items = true;
+
+		def app = appEm.find( [objid: pp.appid ] ).first();
+		def facts = [];
+		facts << new vehicle.facts.VehicleApplication( app );
+		facts << new vehicle.facts.VehicleFranchise( app );
+		facts << new vehicle.facts.VehicleUnit( app.unit );
+
+		//calculate the assessed years
+		assessedYears.each {
+			facts << new vehicle.facts.VehicleAssessYear( year: it );
+		}
+
+		if( pp.amtpaid ) {
+			facts << new treasury.facts.Payment( amount: pp.amtpaid.toDouble() );
+		}
+		req.factBuilder = new treasury.utils.FactBuilder();
+		req.factBuilder.addBillItems( items );
+		req.factBuilder.facts.addAll( facts );
+
+		//adjust the pay priority
+		int n = 1;
+		req.factBuilder.facts.findAll{ it instanceof treasury.facts.BillItem }.each {
+			it.setPaypriority( n++ );
+		}
+		def res =  billingRuleSvc.execute( req );
+
+		//format the items
+		if(res.billitems ) {
+			res.billitems.each {
+				if(!it.item) it.item = itemAcct.find([objid: it.billcode] ).first()?.item;
+				it.remarks = it.year;
+			}
+			res.amount = numSvc.round( res.billitems.sum{ it.total } );		
+		};
+
+		if( res.items ) {
+			def grps = res.items.groupBy{ it.billcode };
+			def vitems = [];
+			grps.each { k,v->
+				def vv = itemAcct.find([objid: k] ).first();
+				def m = [:];
+				m.item = vv.item;
+				def str = String.format("%05d", vv.sortorder);
+				def yr = v.max{ it.year }?.year;
+				if( yr ) {
+					def yr0 = v.min{ it.year }?.year;
+					m.sortorder = (yr + str).toInteger();
+					if(yr0!=yr) m.remarks = yr0 + " - " + yr;
+				}
+				else {
+					m.sortorder = ('10000' + str).toInteger();
+				}
+				m.amount =  numSvc.round( v.sum{it.amount } );
+				vitems << m;
+			}
+			res.items = vitems.sort{ it.sortorder };	
+			if(!res.amount) res.amount = numSvc.round( vitems.sum{ it.amount } );	
+		}
+
+		return res;
+	}
+
+
+}

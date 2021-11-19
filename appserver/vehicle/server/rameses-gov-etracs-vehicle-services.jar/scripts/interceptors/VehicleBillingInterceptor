@@ -1,0 +1,39 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class VehicleBillingInterceptor {
+	
+	@Service("VehicleBillingService")
+	def billSvc;
+
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@DataContext("vehicle_franchise")
+	def vwUnitEm;	
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'vehicle_billing' }")
+	public void getBillingData( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+
+		def appid = t.parameters.appid;
+		if(appid==null) {
+			appid = t.parameters.objid;
+		}	
+
+		def app = appEm.find( [objid: appid ] ).first();
+		def res = billSvc.getBillItems( [appid: appid ] );
+
+		if( !res.billitems )
+			throw new Exception("No pending billitems found");
+
+		def data = [:];
+		data.putAll( app );
+		data.billitems = res.billitems.sort{ it.year };
+		data.billdate = res.billdate;
+		result.data = data;
+
+	}
+
+}

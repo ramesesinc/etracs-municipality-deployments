@@ -1,0 +1,140 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class WorkflowTaskListService  {		
+
+	@Service("QueryService")
+	def querySvc;
+
+    @DataContext("sys_wf_node")
+    def wfNode;
+
+    @Service("SchemaService")
+    def schemaService;
+
+    @DataContext(dynamic=true)
+    def db;
+
+    @Service(value='UserRoleService', connection="admin")
+    def roleSvc;
+
+    @Env 
+    def env;
+
+    @ProxyMethod
+    public def getNodeList( def o ) {
+        if(!o.processname) throw new Exception("processname is required");
+        def nodes = [];
+        nodes << [title:'My Tasks', name:'mytask'];
+        wfNode.find( [processname: o.processname] ).where(" (nodetype = 'state' OR nodetype = 'end') ").orderBy("idx").list().each {
+            nodes << [title: it.title , name: it.name, domain: it.domain, role:it.role, tracktime: it.tracktime, nodetype:it.nodetype, count: 0 ]
+        }
+        nodes = applyCount( o, nodes );
+        return nodes;
+    }
+
+    //this is private function call. incorporate immediately so we dont have so much to intercept
+    def applyCount(  r, nodes ) {
+        def processname = r.processname;
+        def schemaName = r._schemaname;
+        def domain = r.domain;
+        def orgid = env.ORGID;
+        def userid = env.USERID;
+        if (env.ORGROOT == 1) {
+            orgid = null;
+        }   
+
+        def appEm = db.lookup( schemaName );
+
+        def userRoles = roleSvc.getRolesByUser([userid: userid, orgid:orgid]); 
+        def checkInRole = { o->
+            if( o.role == null ) return true;
+            def foundRole =  userRoles.find{ v-> v.domain==o.domain && v.role==o.role  };
+            return (foundRole != null)
+        }
+
+        //calculate count only for those that have tracktime.
+        def nodesToAlert = [];
+        nodes.findAll{ it.tracktime == 1 }.each {
+            if( checkInRole(it) ) nodesToAlert << it.name;
+        }   
+
+        def groupCount = [:];
+        if(nodesToAlert) {
+            def filterStates = " task.state IN ('" + nodesToAlert.join("','") + "') AND task.assignee.objid IS NULL AND task.enddate IS NULL";
+            def param = [:];
+            if( !r.where ) {
+                r.where = [ filterStates ];
+            }
+            else {
+                r.where[0] = filterStates + " AND " + r.where[0];
+                if( r.where.size() > 1 ) param = r.where[1];
+            }
+            appEm =  appEm.select( "task.state, icount:{COUNT(*)}"  ).where( r.where[0], param ).groupBy( "task.state" );
+            if( r.orWhereList ) {
+                r.orWhereList.each {
+                    appEm = appEm.orWhere( it[0], it[1] );
+                }
+            } 
+            def grpList = appEm.list();
+            grpList.each { 
+                groupCount.put( it.task.state, it.icount );
+            }
+        }
+
+        //finally loop each node to get the count per node
+        nodes.each {
+            if( it.name == 'mytask' ) {
+                appEm = appEm.select("c:{COUNT(*)}").where("task.assignee.objid = :uid AND NOT(task.state = 'end') ", [uid: env.USERID]);
+                if( r.orWhereList ) {
+                    r.orWhereList.each {
+                        appEm = appEm.orWhere( it[0], it[1] );
+                    }
+                }    
+                it.count = appEm.val();
+            }
+            else {
+                def scount = groupCount.get( it.name );
+                if( scount ) it.count = scount;
+            }
+            //update the counter
+            if( it.count > 0 ) {
+                it.title = it.title + " (" + it.count + ")";
+            }
+        }
+        return nodes;
+    }
+
+    @ProxyMethod
+    public def getList( def o ) {
+        if(o.node?.name) {
+            def s = null;
+            def p = [:];
+            switch(o.node.name) {
+                case 'all':
+                    break;
+
+                case 'mytask': 
+                    s = "task.state NOT IN ('start','end') AND task.enddate IS NULL AND task.assignee.objid=:assignee";
+                    p.assignee = env.USERID;
+                    break;    
+
+                default:
+                    s = "task.state=:state AND task.enddate IS NULL ";
+                    p.state = o.node.name;
+                    
+            }
+            if( !o.where ) {
+                o.where = [s,  p ];
+            }
+            else {
+                o.where[0] = s + " AND " + o.where[0];
+                o.where[1] = p + o.where[1];
+            }
+        }
+        return querySvc.getList(o);    
+    }
+
+
+}
+

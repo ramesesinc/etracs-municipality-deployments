@@ -1,0 +1,80 @@
+import com.rameses.annotations.*;
+
+public class VehiclePaymentService {
+	
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@DataContext("vehicle_payment")
+	def paymentEm;
+
+	@DataContext("vehicle_application_fee")
+	def feeEm;
+
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod
+	public void postPayment(def o ) {
+		if(!o.billitems) throw new Exception("Please include billitems");
+		if(!o.app?.appid) throw new Exception("Please app.appid is required");
+
+		if(!o.reftype) o.reftype = "cashreceipt";
+		if(!o.txndate) o.txndate = dateSvc.getServerDate();
+		if(!o.txnmode) o.txnmode = "CAPTURE";
+
+		def pmt = [:];
+		pmt.txndate = o.txndate;
+		pmt.appid = o.app.appid;
+		pmt.refdate = o.receiptdate;
+		pmt.refno = o.receiptno;
+		pmt.reftype = o.reftype;
+		pmt.refid = o.objid;
+		pmt.amount = o.amount;
+		pmt.voided = 0;
+		pmt.txnmode = o.txnmode;
+		pmt.remarks = o.remarks;
+		pmt.items = o.billitems.collect{ [refid: it.refid, amount: it.amount, discount: it.discount, surcharge: it.surcharge, interest: it.interest, remarks: it.remarks]  };
+		paymentEm.create( pmt );
+
+		//post the amounts into the respective ledgers
+		pmt.items.each {
+			feeEm.find( [objid: it.refid] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: it.amount] );
+		}
+
+		def app = appEm.find( [objid: o.app.appid ] ).first();
+		def m = [processname: 'vehicle_application'];
+		m.taskid = app.taskid;
+		m.refid = app.objid;
+		m.taskstate = 'payment';
+		m.action = 'post';
+		taskSvc.signal( m );
+
+	}
+
+	@ProxyMethod
+	public void voidPayment(def o ) {
+		//check first if we can still void the transaction
+		def pmt = paymentEm.find( [refid: o.receipt.objid  ]).first(1);
+		def app = appEm.find( [objid: pmt.appid ] ).first();
+		if(!app) throw new Exception("application refered in payment does not exist");
+
+		pmt.items.each {
+			feeEm.find( [objid: it.refid] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: it.amount] );
+		}
+		paymentEm.find( [objid: pmt.objid] ).update( [voided: 1 ] );
+
+		if(app.task.state!='payment') {
+			def m = [processname: 'vehicle_application'];
+			m.taskid = app.taskid;
+			m.refid = app.objid;
+			m.action = 'void-payment';
+			taskSvc.signal( m );		
+		}
+		
+	}
+
+}

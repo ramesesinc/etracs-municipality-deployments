@@ -1,0 +1,9 @@
+<schema>
+	<element tablename="vehicle_duedate">
+		<field name="objid" primary="true" prefix="VDT"/>
+		<field name="vehicletypeid"  required="true"/>
+		<field name="month" type="integer"  required="true"/>
+		<field name="year" type="integer"  required="true"/>
+		<field name="duedate" type="date" required="true"/>
+	</element>
+</schema>

@@ -1,0 +1,17 @@
+<schema>
+	<element tablename="vehicletype">
+		<field name="objid" primary="true" visible="true" editable="false" caption="Name" searchable="true"/>
+		<field name="title" required="true" caption="Title"  searchable="true"/>
+		
+		<field name="controlpattern" required="true" />
+		<field name="appnopattern" required="true" />
+		<field name="permitnopattern" required="true" />
+		<field name="drivernopattern" required="true" />
+
+		<field name="icon" /> 
+		<field name="renewalfrequency" required="true" caption="Renewal Frequency" defaultValue="YEAR"/> 
+		<field name="permithandler"/> 
+		<field name="maxunitperowner"/> 
+
+	</element>
+</schema>

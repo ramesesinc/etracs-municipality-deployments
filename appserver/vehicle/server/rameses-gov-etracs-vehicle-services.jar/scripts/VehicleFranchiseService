@@ -1,0 +1,56 @@
+import com.rameses.annotations.*;
+
+import com.rameses.util.*;
+import java.text.*;
+import java.util.regex.*;
+import treasury.facts.*;
+import vehicle.facts.*;
+
+/**********************************************************
+* This service maintains generation of control nos.
+***********************************************************/
+class VehicleFranchiseService {
+	
+	@DataContext("vehicletype")
+	def vt;
+
+	@DataContext("vehicle_franchise")
+	def franchiseEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Env
+	def env;
+
+	//this service is found in treasury common
+	@Service("ControlnoGeneratorService")
+	def controlNoGenerator;
+	
+	@ProxyMethod
+	public void generate( def o ) {
+		if(!o.qty) throw new Exception("Please indicate qty in VehicleFranchiseService");
+		if(!o.vehicletype) throw new Exception("Please indicate vehicletype in VehicleFranchiseService");
+
+		def vehicletype = o.vehicletype.toLowerCase();
+
+		//find the control pattern, located in vehicle
+		def g = vt.find( [objid: vehicletype] ).first();
+		if(!g) throw new Exception("vehicletype " + vehicletype + " not found");
+		if(!g.controlpattern) throw new Exception("controlpattern is required in vehicletype");
+
+		int qty = (o.qty+"").toInteger();
+		def dt = dateSvc.getServerDate();
+
+		(1..qty).each {
+			def m = [vehicletypeid: g.objid];
+		    m.controlno = controlNoGenerator.getNextNo( g.controlpattern );
+		    m.objid = m.controlno;
+		    m.state = 'OPEN';
+			franchiseEm.create( m );
+		} 
+		
+	}
+
+
+}

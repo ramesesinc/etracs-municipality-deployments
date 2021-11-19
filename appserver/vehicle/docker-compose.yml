@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+
+  vehicle-server:
+    image: ramesesinc/local-vehicle-server:255.01.002
+    container_name: vehicle-server
+    restart: always
+    logging: 
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+    env_file:
+      - ./env.conf
+      - ../../_res/env.conf
+      - ../../_custom/env.conf
+    ports: 
+      - "8072:8070"
+    volumes:
+      - ../../_res/connections:/apps/server/services/apps/enterprise/connections/ext
+      - ../../_custom/datasources/vehicleds:/apps/server/services/datasources/mainds
+
+      - ./dev/lib/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
+      - ./dev/lib/rameses-osiris3-core2.jar:/apps/server/lib/rameses-osiris3-core2.jar
+      - ./dev/lib/rameses-osiris3-server.jar:/apps/server/lib/rameses-osiris3-server.jar
+
+      - ./dev/services_modules:/apps/server/services/modules
+
+      - ./server:/apps/server/services/apps/enterprise/modules

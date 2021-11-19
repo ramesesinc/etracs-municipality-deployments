@@ -1,0 +1,18 @@
+<schema>
+	<element tablename="vehicle_driver">
+		<field name="objid" primary="true" prefix="VDRVR" />
+		<field name="controlno" caption="Control No" searchable="true"/>
+		<field name="entity_objid" required="true" />
+		<field name="entity_name" required="true" caption="Driver Name" searchable="true"/>
+		<field name="entity_address_objid" required="true" />
+		<field name="entity_address_text" required="true" />
+
+		<field name="license_refno" />
+		<field name="license_expirydate" type="date"/>
+
+		<complex name="vehicletype" ref="vehicletype" jointype="many-to-one">
+			<key field="vehicletypeid" target="objid" />
+		</complex> 
+
+	</element>
+</schema>		

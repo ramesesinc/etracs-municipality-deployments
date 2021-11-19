@@ -1,0 +1,286 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import com.rameses.rules.common.*;
+import java.text.*;
+import vehicle.facts.*;
+
+public class VehicleApplicationService  {
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@DataContext("vehicle_application_info")
+	def appInfoEm;
+
+	@DataContext("vehicle_application_fee")
+	def appFeeEm;
+
+	@DataContext("vehicle_account")
+	def acctEm;
+
+	@DataContext("vehicle_unit")
+	def unitEm;
+
+	@DataContext("vehicle_unit_info")
+	def unitInfoEm;
+
+	@DataContext("vehicletype")
+	def vtypeEm;
+
+	@DataContext("vehicletype_field")
+	def vFieldEm;
+
+	@DataContext("vehicle_application_task")
+	def vtaskEm;
+
+	@DataContext("vehicle_franchise")
+	def franchiseEm;
+
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@Service("Var")
+	def varSvc;
+
+	@Env
+	def env;
+
+	def generateAppNo = { franchiseid, apptype ->
+		def fran = franchiseEm.find([objid: franchiseid ]).first();
+		if( !fran?.vehicletype?.appnopattern )
+			throw new Exception("Please specify appnopattern in vehicletype");
+		return controlNoSvc.getNextNo( fran.vehicletype.appnopattern );	
+	}
+
+	def updateUnitInfo( def unit, def vehicletypeid ) {
+		if(!unit.objid) throw new Exception("Error VehicleApplicationService.updateUnitInfo. unit must have objid")
+		unit.each { k,v->
+			if(!k.matches('objid|franchiseid')) {
+				def fld = vFieldEm.find([vehicletypeid:vehicletypeid, name:k] ).first();
+				if(fld) {
+					def uinfo = [:];
+					uinfo.unitid = unit.objid;
+					uinfo.field = fld;
+					if(fld.datatype == 'decimal') uinfo.decimalvalue = v; 
+					else if(fld.datatype == 'integer') uinfo.intvalue = v; 
+					else if(fld.datatype == 'date') uinfo.datevalue = v; 
+					else if(fld.datatype == 'boolean') {
+						uinfo.booleanvalue = v; 					
+					}	
+					else uinfo.stringvalue = v;
+					unitInfoEm.create( uinfo );
+				}
+			}
+		}
+	}
+
+	@ProxyMethod
+	public def create( def o ) {
+		def vt = vtypeEm.find( [objid: o.franchise.vehicletype.objid ] ).first();
+		if( vt.maxunitperowner ) {
+			def ownerid = o.account.owner?.objid;
+			def cnt = franchiseEm.find( [vehicletypeid: vt.objid] ).where("account.owner.objid = :oid", [oid: ownerid ] ).select("c:{COUNT(*)}").val();
+			if( cnt >= vt.maxunitperowner ) throw new Exception("No. of units owned by a specific owner should not exceed " + vt.maxunitperowner);
+		}
+
+		def upd = [:];
+		//create the account and unit before saving the application
+		if(o.txnmode == "CAPTURE" || o.apptype.matches('NEW|CHANGE_OWNER|CHANGE_OWNER_UNIT') ) {
+			if(o.account.objid) throw new Exception("Account already exists. This may have been doubled saved");
+			o.account.franchiseid = o.franchise.objid;
+			o.account = acctEm.create( o.account );
+			upd.acctid = o.account.objid;
+		}
+		if(o.txnmode == "CAPTURE" || o.apptype.matches("NEW|CHANGE_UNIT|CHANGE_OWNER_UNIT")  ) {
+			if(o.unit.objid) throw new Exception("Unit already exists. This may have been doubled saved");
+			o.unit.franchiseid = o.franchise.objid;
+			o.unit = unitEm.create( o.unit );
+			updateUnitInfo( o.unit, o.franchise.vehicletype.objid );		
+			upd.unitid = o.unit.objid;
+		}
+
+		o.dtcreated = dateSvc.getServerDate();
+		o.createdby = [objid: env.USERID, name:  env.FULLNAME ];
+		o.appno = generateAppNo( o.franchise.objid, o.apptype );
+		o = appEm.create( o );
+
+		upd.appid = o.objid;
+
+		if( o.apptype.matches('NEW|CHANGE.*') ) {
+			upd.lastfranchiseyearpaid = o.appyear;
+		}
+		else if( o.txnmode == 'CAPTURE' ) {
+			if(!o.lastfranchiseyearpaid ) throw new Exception("Please indicate last franchise year paid");
+			if(o.lastfranchiseyearpaid > dateSvc.getServerYear() ) throw new Exception("Last franchise year paid must be less than current year");
+			//we just assign an arbitrary year
+			if(o.lastfranchiseyearpaid < 2000 ) throw new Exception("Invalid franchise year paid"); 
+
+			upd.lastfranchiseyearpaid = o.lastfranchiseyearpaid;
+		}
+		franchiseEm.find( [objid: o.franchise.objid] ).update( upd );
+
+		def p = [:];
+		p.processname = 'vehicle_application';
+		p.refid = o.objid;
+		p.startdate = o.dtcreated;
+		p.info = o;
+		p.assignee = [objid: env.USERID,name: env.FULLNAME];
+		taskSvc.start(p);
+
+		return o;
+	}
+
+	@ProxyMethod
+	public def findControlNoForApplication( def o ) {
+		if(!o.controlno) throw new Exception("o.controlno is required in findControlNoForApplication");
+		if(!o.apptype) throw new Exception("o.apptype is required in findControlNoForApplication");
+
+		//test first franchise no. then application  no.
+		def vf = franchiseEm.find( [controlno: o.controlno ]).first();
+		if(!vf) throw new Exception("Control " +  o.controlno +  " no not found");
+		if(!vf.appid) throw new Exception("There should be at least an existing appid in franchise. The franchise may not have been assigned to a unit");
+
+		//check if there is pending application. do not proceed if there are still unfinished apps
+		def openCount = appEm.find( [franchiseid: vf.objid ] ).where(" NOT(task.state = 'end') ").select("c:{COUNT(*)}").val();
+		if( openCount > 0 ) throw new Exception("There are still unfinished applications being processed. Complete it first or cancel the pending application before proceeding");
+
+		//opne existing new or renew app so we can evaluate the requested application. if renew existing apptype must not be current. 
+		//if change, the existing app must be current
+		def app = appEm.find( [objid: vf.appid ] ).first();
+		def currYear = dateSvc.getServerYear();
+		def currDate = dateSvc.getServerDate();
+
+		if( o.apptype == "RENEW") {
+			int allowed_days = 0;
+			def z = varSvc.early_renewal_allowed_days;
+			if(z) allowed_days = z.toInteger();
+
+			//deduct no. of days from expirydate and compare with current date
+			def testDate = DateUtil.add( vf.permit.expirydate, "-" + allowed_days + "d"  );
+			if( testDate.after( currDate ) ) {
+				throw new Exception("Vehicle is not yet applicable for renewal");
+			}
+			def zv = getExpiryDate( [appdate: currDate, vehicletype: app.franchise.vehicletype ] );
+			vf.appdate = currDate;
+			vf.appyear = zv.appyear;			
+		}
+		else {
+			vf.appdate = currDate;
+			vf.appyear = app.appyear;
+		}
+		//unit info
+		def unit = vf.unit;
+		def infos = unitInfoEm.find( [unitid: vf.unit.objid ] ).list();
+		infos.each {
+			def val = null;
+			if(it.field.datatype == "decimal") val = it.decimalvalue;
+			else if(it.field.datatype == "integer") val = it.intvalue;
+			else if(it.field.datatype == "date") val = it.datevalue;
+			else if(it.field.datatype == "boolean") val = it.booleanvalue;
+			else val = it.stringvalue;
+			unit.put( it.field.name, val );
+		}
+
+		return vf;
+	}
+
+	@ProxyMethod
+	public def getExpiryDate( def app ) {
+		if(!app.appdate) throw new Exception("Please specify appdate in VehicleApplication.getExpiryDate");
+		if(!app.vehicletype) throw new Exception("Please specify vehicletype in VehicleApplication.getExpiryDate");
+
+		def req = [rulename: "vehicledates", params: [appdate:app.appdate]];
+		req.factBuilder = new treasury.utils.FactBuilder();
+		def appFact = new VehicleApplication();
+		appFact.setVehicletype( app.vehicletype.objid );
+		appFact.setAppdate( app.appdate );
+		appFact.setApptype( app.apptype );
+		req.factBuilder.facts << appFact;
+		def res = billingRuleSvc.execute(req);
+		def v = req.factBuilder.facts.find{ (it instanceof treasury.facts.VarDate) && it.tag == 'expirydate' };
+		if( !v ) throw new Exception("There is no rule defined for renewal date that matches conditions");
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		def yf = new java.text.SimpleDateFormat("yyyy");
+		return [
+			expirydate: df.format( v.date ),
+			appyear: yf.format( v.date )
+		];	
+	}
+
+	@ProxyMethod
+	public void updateFranchise(def a ) {
+		def o = appEm.find( [objid:a.appid] ).first();
+
+		//update franchise current year and franchise year application only if new or capture. otherwise updating this will be done after releasing
+		if( o.apptype.matches('NEW|RENEW') ) {
+			franchiseEm.find( [objid: o.franchiseid] ).update( [appid: o.objid, unitid: o.unit.objid, acctid: o.account.objid] );
+		}
+		else if( o.apptype == "CHANGE_OWNER" ) {
+			franchiseEm.find( [objid: o.franchiseid] ).update( [acctid: o.account.objid] );
+		}
+		else if(o.apptype == "CHANGE_UNIT" ) {
+			franchiseEm.find( [objid: o.franchiseid] ).update( [unitid: o.unit.objid] );			
+		}
+		else if(o.apptype == "DROP_FRANCHISE") {
+			franchiseEm.find( [objid: o.franchiseid] ).update([unitid: "{NULL}", appid:"{NULL}", acctid: "{NULL}" ]);						
+		}
+	}
+
+	@ProxyMethod
+	public void updateApplication( def app ) {
+		if( app.txnmode == "CAPTURE" || app.apptype.matches("NEW|CHANGE_UNIT|CHANGE_OWNER_UNIT") ) {
+			//remove all so we can simply replace all infos
+			def unit = app.unit;
+			unitInfoEm.find( [unitid: unit.objid ] ).delete();
+			updateUnitInfo( unit, app.franchise.vehicletype.objid )
+		}
+		if( app.txnmode =="CAPTURE" || app.apptype.matches("NEW|CHANGE_OWNER|CHANGE_OWNER_UNIT") ) {
+			//change acct info
+			acctEm.find( [objid: app.account.objid ] ).update( app.account );
+			appEm.find( [objid: app.objid] ).update( [particulars: app.particulars ] );
+		}		
+	}
+
+	@ProxyMethod
+	public void cancelApplication( def o ) {
+		def app = appEm.find( [objid: o.objid ]).first();
+		if( app.txnmode!='CAPTURE' && app.task.state == 'end') throw new Exception("Cannot cancel the application that is already completed");
+
+		if( app.apptype == "NEW" || app.txnmode == "CAPTURE" ) {
+			franchiseEm.find([objid: app.franchiseid] ).update([unitid: "{NULL}", appid:"{NULL}", acctid: "{NULL}" ]);
+		}
+		else {
+			def u = [excludeid: app.objid];
+			def prevapp = appEm.find( [franchiseid: app.franchiseid] ).where(" NOT(objid = :excludeid) ", u ).orderBy("appdate DESC").first();
+			def upd = [appid: prevapp.objid, unitid: prevapp.unitid, acctid: prevapp.acctid ];
+			franchiseEm.find([objid: app.franchiseid] ).update(upd);
+		}
+		appFeeEm.find( [appid: app.objid] ).delete();
+		appInfoEm.find( [appid: app.objid] ).delete();
+		appEm.find( [objid: app.objid] ).update( [taskid: "{NULL}" ] );
+		vtaskEm.find([refid: app.objid]).delete();
+		appEm.find( [objid: app.objid] ).delete();
+
+		//delete only 
+		if( app.apptype == "NEW" || app.txnmode == "CAPTURE" ) {
+			unitInfoEm.find( [unitid: app.unitid ] ).delete();
+			unitEm.find( [objid: app.unitid] ).delete();
+			acctEm.find( [objid: app.acctid] ).delete();
+		}
+
+	}
+
+	
+
+
+}

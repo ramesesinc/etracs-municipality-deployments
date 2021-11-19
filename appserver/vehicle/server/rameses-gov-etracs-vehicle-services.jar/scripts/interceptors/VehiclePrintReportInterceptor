@@ -1,0 +1,114 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class VehiclePrintReportInterceptor {
+	
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@DataContext("vehicle_application_fee")
+	def appFee;
+
+	@DataContext("vehicle_payment")
+	def paymentEm;
+
+	@DataContext("vehicle_permit")
+	def permitEm;
+
+	@DataContext("vehicle_unit_info")
+	def unitInfoEm;
+
+	@Service("VehicleBillingService")
+	def billingSvc;
+
+	@Service(value="EntityFinderService", connection="entity")
+	def entityFinder;
+
+	void loadUnit( def unit ) {
+		def infos = unitInfoEm.find( [unitid: unit.objid ] ).list();
+		infos.each {
+			def val = null;
+			if(it.field.datatype == "decimal") val = it.decimalvalue;
+			else if(it.field.datatype == "integer") val = it.intvalue;
+			else if(it.field.datatype == "date") val = it.datevalue;
+			else if(it.field.datatype == "boolean") val = it.booleanvalue;
+			else val = it.stringvalue;
+			unit.put( it.field.name, val );
+		}
+	}
+
+	private void loadOwnerInfo(def app) {
+		def owner = entityFinder.find([objid: app.account.owner.objid]);
+		if(!owner) {
+			println "Owner not found ";
+			return;
+		}
+		app.account.owner = owner;
+		if( app.account.owner.type.toUpperCase() == 'INDIVIDUAL') {
+			def mi = "";
+			if( app.account.owner.middlename ) {
+				mi = " " + app.account.owner.middlename.substring(0,1) + ". ";
+			}
+			app.account.owner.fullname = app.account.owner.firstname + mi + app.account.owner.lastname;
+		}
+		else {
+			app.account.owner.fullname = app.account.owner.name;
+		};
+	}
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'vehicle_application' }")
+	public void getAppData( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+		def appid = t.parameters.objid;
+		def app = appEm.find( [objid: appid ]).first();
+		app.controlno = app.franchise.remove("objid");
+		app.vehicletype = app.franchise.remove("vehicletype");
+		loadOwnerInfo( app );
+		loadUnit( app.unit );
+		result.data = app;
+	}
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'vehicle_billing' }")
+	public void getBillingData( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+		def appid = t.parameters.objid;
+		def app = appEm.find( [objid: appid ]).first();
+		def res = billingSvc.getBillItems( [appid: appid , include_billitems: false, include_items: true ] );
+
+		loadOwnerInfo(app);
+
+		app.items = res.items;
+		loadUnit( app.unit );
+		result.data = app;
+	}
+
+	@After(pattern="FormReportService.getData", eval="#{ args[0].reportid == 'vehicle_permit' }")
+	public void getPermitData( def evt ) {
+		def t = evt.args[0];
+		def result = evt.result;
+		def permitid = t.parameters.permitid;
+		
+		def perm = permitEm.find( [objid: permitid ]).first();
+		if(!perm) throw new Exception("Permit does not exist");
+
+		def app = appEm.find([objid: perm.appid]).first();
+		loadOwnerInfo(app);
+		perm.controlno = app.franchise.objid;
+		perm.appyear = app.appyear;
+		perm.apptype = app.apptype;
+		perm.unit = app.unit;
+		perm.account = app.account;
+		perm.vehicletype = app.franchise.vehicletype;
+		perm.payments = paymentEm.find( [appid: app.objid ] ).where("voided = 0").select("refno,refdate,amount").list();
+
+		//perm.endorser = [name:null, jobtitle: null];
+
+		loadUnit( perm.unit );
+		result.data = perm;
+	}
+
+
+
+}

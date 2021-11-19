@@ -1,0 +1,31 @@
+<schema>
+	<element tablename="vehicle_franchise">
+		<field name="objid" primary="true" />
+		<field name="controlno" caption="Control No" searchable="true"/>
+		<field name="state"  required="true" />
+		<field name="appid" />
+		<field name="lastfranchiseyearpaid" />
+
+		<complex name="account" ref="vehicle_account" jointype="many-to-one" required="false">
+			<key field="acctid" target="objid" />
+		</complex>
+
+		<complex name="permit" ref="vehicle_permit" jointype="many-to-one" required="false" 
+			includefields="objid,permitno,expirydate,dtissued">
+			<key field="permitid" target="objid" />
+		</complex>
+
+		<complex name="vehicletype" ref="vehicletype" jointype="many-to-one" required="false">
+			<key field="vehicletypeid" target="objid" />
+		</complex> 
+
+		<complex name="unit" ref="vehicle_unit" jointype="many-to-one" required="false">
+			<key field="unitid" target="objid" />
+		</complex>
+
+		<complex name="app" ref="vehicle_application" jointype="many-to-one" required="false" includefields="appyear,expirydate,task.state,permit.permitno,permit.expirydate">
+			<key field="appid" target="objid" />
+		</complex>
+
+	</element>
+</schema>

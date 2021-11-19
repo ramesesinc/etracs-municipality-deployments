@@ -1,0 +1,23 @@
+<schema>
+	<element tablename="vehicle_application_info">
+		<field name="objid" primary="true" prefix="VAPPINFO"/>
+		<field name="appid" required="true"/>
+		<field name="name" />
+		<field name="stringvalue" />
+		<field name="decimalvalue" type="decimal"/>
+		<field name="intvalue" type="integer"/>
+		<field name="datevalue"  type="date"/>
+		<field name="booleanvalue"  type="boolean"/>
+		<field name="lov_objid" />
+		<field name="lookup_objid" />
+		<field name="lookup_title" />
+		<field name="objvalue" />
+		<field name="sortorder" type="integer"/>
+
+		<complex name="type" ref="vehicle_variable" jointype="many-to-one">
+			<key field="name" target="objid" />
+		</complex>	
+	</element>
+</schema>
+
+

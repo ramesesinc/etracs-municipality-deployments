@@ -1,0 +1,7 @@
+TEST CASES.
+
+1. Adding New Application:
+	1.1 Create new application
+	1.2 Assess button only appears for assessor role and assigned to me
+	1.3 View assessment appears only when there are billitems
+	1.4 

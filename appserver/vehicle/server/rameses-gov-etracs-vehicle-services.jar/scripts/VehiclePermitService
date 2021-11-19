@@ -1,0 +1,69 @@
+import com.rameses.annotations.*;
+import java.rmi.server.UID;
+import vehicle.facts.*;
+
+class VehiclePermitService {
+	
+	@Env
+	def env;	
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("vehicle_permit")
+	def permitEm;
+
+	@DataContext("vehicle_franchise")
+	def franchiseEm;
+
+	@DataContext("vehicle_application")
+	def appEm;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+
+	@Service("BillingRuleService")
+	def billingRuleSvc;
+
+	@ProxyMethod 
+	public def create( def perm ) { 
+		def app = appEm.find([objid: perm.appid]).first();
+		if( !perm.permitno ) {
+			def pttn = app.franchise.vehicletype.permitnopattern;
+			if( !pttn )
+					throw new Exception("Please specify permitnopattern in vehicletype");
+			perm.permitno = controlNoSvc.getNextNo( pttn );
+		}
+		if(!perm.dtissued) {
+			perm.dtissued = dateSvc.getServerDate();
+		}
+		if(!perm.permittype) perm.permittype = "STANDARD";
+		perm.state = "ACTIVE";
+		perm.issuedby = [objid: env.USERID, name: env.FULLNAME ];
+		perm.expirydate = getExpiryDate( app );
+		perm = permitEm.create( perm );
+
+		//update the franchise also
+		franchiseEm.find( [objid: app.franchise.objid ] ).update( [permitid: perm.objid ] );
+
+		return perm;
+	}
+
+	@ProxyMethod
+	public def getExpiryDate( def app ) {
+		def req = [rulename: "vehicledates", params: [appdate:app.appdate]];
+		req.factBuilder = new treasury.utils.FactBuilder();
+		def appFact = new VehicleApplication();
+		appFact.setVehicletype( app.franchise.vehicletype.objid );
+		appFact.setAppdate( app.appdate );
+		appFact.setApptype( app.apptype );
+		req.factBuilder.facts << appFact;
+		def res = billingRuleSvc.execute(req);
+		def v = req.factBuilder.facts.find{ (it instanceof treasury.facts.VarDate) && it.tag == 'expirydate' };
+		if( !v ) throw new Exception("There is no rule defined for renewal date that matches conditions");
+		def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		return df.format( v.date );
+	}
+	
+
+}
