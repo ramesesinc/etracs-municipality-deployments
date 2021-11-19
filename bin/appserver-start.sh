@@ -7,4 +7,6 @@ cd $BASE_DIR/appserver/epayment && docker-compose -f docker-compose.yml -f docke
 
 cd $BASE_DIR/appserver/etracs && docker-compose -f docker-compose.yml -f docker-compose-ext.yml up -d
 
+cd $BASE_DIR/appserver/vehicle && docker-compose up -d
+
 cd $RUN_DIR
