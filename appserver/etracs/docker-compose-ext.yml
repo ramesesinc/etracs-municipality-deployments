@@ -10,4 +10,4 @@ services:
          - ./dev_modules/treasury:/services/modules/treasury
 
          ## mounted RPTIS 2.5.03.02.01
-         - ./dev_modules/rptis:/services/modules/rptis
+         #- ./dev_modules/rptis:/services/modules/rptis
