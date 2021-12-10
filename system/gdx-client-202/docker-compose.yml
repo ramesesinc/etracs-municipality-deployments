@@ -1,0 +1,44 @@
+version: "3"
+
+services:
+
+  gdx-proxy-server:
+    image: ramesesinc/gdx-proxy-server:v002
+    container_name: gdx-proxy-server
+    restart: always
+    logging: 
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+    environment:
+      TZ: "Asia/Manila"
+    ports:
+      - "8500:80"
+    volumes:
+      - ./dev/conf.d:/etc/nginx/conf.d
+
+
+  gdx-client:
+    image: ramesesinc/gdx-client:1.04.01
+    container_name: gdx-client
+    restart: always
+    logging: 
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+    environment:
+      TZ: "Asia/Manila"
+    env_file:
+      - ./env.conf
+      - ../../_res/env.conf
+      - ../../_custom/env.conf
+    ports:
+      - "8571:8571"
+    volumes:
+      - ../../_res/connections:/apps/gdx/connections/ext
+      - ./modules:/apps/server/apps/gdx/modules
+      - ./lib/rameses-gdx-coordinator.jar:/apps/server/lib/rameses-gdx-coordinator.jar
+      
+      - ./dev/app.conf:/apps/gdx/app.conf
