@@ -96,11 +96,11 @@ class OnlineBusinessApplicationService {
 	    	if ( !ai ) return; 
 
 	    	if ( o.datatype == 'integer' ) { 
-	    		ai.intvalue = o.value.toString().toInteger(); 
+	    		ai.intvalue = (o.value.toString() == "null" ? 0 : o.value.toString().toInteger()); 
 	    		ai.decimalvalue = ai.boolvalue = ai.stringvalue = null; 
 	    	}
 	    	else if ( o.datatype == 'decimal' ) {
-	    		ai.decimalvalue = new BigDecimal( o.value.toString()); 
+	    		ai.decimalvalue = (o.value.toString() == "null" ? 0 : new BigDecimal( o.value.toString())); 
 	    		ai.intvalue = ai.boolvalue = ai.stringvalue = null; 
 	    	}
 	    	else if ( o.datatype == 'boolean' ) {
