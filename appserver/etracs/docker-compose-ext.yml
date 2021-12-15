@@ -7,3 +7,7 @@ services:
          ## this is only a seed mapping, please do not remove
          ## 
          - ../../_custom/.emptydir:/.emptydir
+
+
+         - ./dev_modules/rptis/rameses-gov-etracs-rptis-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-services.jar
+         - ./dev_modules/rptis/rameses-gov-etracs-rptis-sync2-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-sync2-services.jar
