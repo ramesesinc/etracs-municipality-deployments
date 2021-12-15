@@ -35,17 +35,17 @@ services:
 
 
       ## mounted patch folders
-      - ./dev-modules/bpls:/services/modules/bpls
-      - ./dev-modules/bpls.conf:/apps/etracs25/modules.conf.d/bpls.conf
+      - ./dev_modules/bpls:/services/modules/bpls
+      - ./dev_modules/bpls.conf:/apps/etracs25/modules.conf.d/bpls.conf
 
-      - ./dev-modules/admin:/services/modules/admin
-      - ./dev-modules/etracs:/services/modules/etracs
-      - ./dev-modules/financial:/services/modules/financial
-      - ./dev-modules/jasper:/services/modules/jasper
-      - ./dev-modules/rules:/services/modules/rules
+      - ./dev_modules/admin:/services/modules/admin
+      - ./dev_modules/etracs:/services/modules/etracs
+      - ./dev_modules/financial:/services/modules/financial
+      - ./dev_modules/jasper:/services/modules/jasper
+      - ./dev_modules/rules:/services/modules/rules
 
-      - ./dev-modules/treasury:/services/modules/treasury
-      - ./dev-modules/_treasury.conf:/apps/etracs25/modules.conf.d/_treasury.conf
+      - ./dev_modules/treasury:/services/modules/treasury
+      - ./dev_modules/_treasury.conf:/apps/etracs25/modules.conf.d/_treasury.conf
 
       ## mounted lib
       - ../../_res/lib/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
