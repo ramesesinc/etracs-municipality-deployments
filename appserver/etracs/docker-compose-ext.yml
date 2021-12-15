@@ -4,10 +4,10 @@ services:
 
    etracs-server:
       volumes:
-         - ./dev_modules/bpls:/services/modules/bpls
-         - ./dev_modules/rules:/services/modules/rules
-         - ./dev_modules/admin:/services/modules/admin
-         - ./dev_modules/treasury:/services/modules/treasury
+         ## this is only a seed mapping, please do not remove
+         ## 
+         - ../../_custom/.emptydir:/.emptydir
+
 
          ## mounted RPTIS 2.5.03.02.01
          - ./dev_modules/rptis:/services/modules/rptis
