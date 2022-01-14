@@ -482,18 +482,34 @@ class OnlineBusinessRenewalService {
 			def path = (o.attachment?.location ? o.attachment.location : o.attachment?.path);
 			if ( !path ) return; 
 
+			if ( path.indexOf("://") > 0 ) {
+				def sb = new StringBuilder(); 
+				sb.append("/s3/"); 
+
+				def ii = path.indexOf("://"); 
+				sb.append( path.substring( ii+3 ));
+
+				path = sb.toString();  
+			}
+
+			if ( !o.attachment.filename ) {
+				o.attachment.filename = path.substring( path.lastIndexOf('/')+ 1 ); 
+			}
+			if ( !o.attachment.filetype ) {
+				def filename = o.attachment.filename; 
+				o.attachment.filetype = filename.substring( filename.lastIndexOf('.')+ 1 ); 
+			}
+			if ( !o.attachment.name ) {
+				o.attachment.name = o.attachment.filename; 
+			}
+
 			def m = [:]; 
 			m.objid = app.objid +'-'+ idx; 
 			m.parentid = app.objid; 
 			m.doc = [type: o.ref?.reftype, title: o.ref?.title];
 			m.attachment = [ objid: o.objid, path: path ];
-			m.attachment.name = (o.attachment.etag ? o.attachment.etag : o.attachment.name); 
-			m.fs = [ filetype: "", state: 'PENDING' ]; 
-
-			def charIdx = m.attachment.name.toString().lastIndexOf('.'); 
-			if ( charIdx >= 0 ) {
-				m.fs.filetype = m.attachment.name.toString().substring(charIdx + 1).toLowerCase(); 
-			}
+			m.attachment.name = (o.attachment.name ? o.attachment.name : o.attachment.filename); 
+			m.fs = [ filetype: o.attachment.filetype, state: 'PENDING' ]; 
 
 			em_appdoc.create( m ); 
 			o.docid = m.objid; 
