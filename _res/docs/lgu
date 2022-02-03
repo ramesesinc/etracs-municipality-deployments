@@ -19,7 +19,7 @@ Pass : <Same access of Docker Server>
 [Portainer]
 URL  : http://192.168.22.103:9000
 User : admin
-Pass : p@ssw0rd
+Pass : 2bodp@ssw0rd
 
 
 [Samba]
