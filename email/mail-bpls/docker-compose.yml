@@ -2,8 +2,8 @@ version: "3"
 
 services:
 
-  mail-primary: 
-    container_name: mail-primary
+  mail-bpls: 
+    container_name: mail-bpls
     image: ramesesinc/mail-server:1.01
     restart: always
     logging: 
@@ -17,8 +17,8 @@ services:
       - ./env.conf
       - ../../_res/env.conf
       - ../../_custom/env.conf
-      - ../../_custom/mail/primary.conf
+      - ../../_custom/mail/bpls.conf
     ports:
-      - "2525:25"
+      - "2527:25"
     volumes:
       - .:/etc/postfix/_custom
