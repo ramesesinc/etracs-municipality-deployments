@@ -3124,3 +3124,26 @@ CREATE TABLE `sys_email_template` (
 
 INSERT INTO `sys_email_template` (`objid`, `subject`, `message`) 
 VALUES ('business_permit', 'Business Permit ${permitno}', 'Dear valued customer, <br><br>Please see attached Business Permit document. This is an electronic transaction. Please do not reply.');
+
+
+
+
+-- ## other patches
+
+CREATE TABLE `remote_mapping` (
+  `objid` varchar(50) NOT NULL,
+  `doctype` varchar(50) NOT NULL,
+  `remote_objid` varchar(50) NOT NULL,
+  `createdby_name` varchar(255) NOT NULL,
+  `createdby_title` varchar(100) DEFAULT NULL,
+  `dtcreated` datetime NOT NULL,
+  `orgcode` varchar(10) DEFAULT NULL,
+  `remote_orgcode` varchar(10) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_doctype` (`doctype`),
+  KEY `ix_orgcode` (`orgcode`),
+  KEY `ix_remote_orgcode` (`remote_orgcode`),
+  KEY `ix_remote_objid` (`remote_objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
