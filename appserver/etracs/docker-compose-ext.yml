@@ -7,3 +7,9 @@ services:
          ## this is only a seed mapping, please do not remove
          ## 
          - ../../_custom/.emptydir:/.emptydir
+
+
+         ## mounted old RPTIS version from repo "etracs255-server-iln-municipality.git"
+         ## 
+         - ./dev_modules/rptis/server:/services/modules/rptis
+         - ./dev_modules/rptis/server.conf:/apps/etracs25/modules.conf.d/rptis.conf
