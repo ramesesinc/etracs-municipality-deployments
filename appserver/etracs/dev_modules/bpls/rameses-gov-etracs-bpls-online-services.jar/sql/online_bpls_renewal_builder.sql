@@ -2,8 +2,17 @@
 select * from business where objid=$P{objid}
 
 
+[findExistingRenewalApp]
+select * 
+from business_application 
+where business_objid = $P{businessid}
+	and appyear = $P{appyear}
+	and apptype = 'RENEW'
+
+
 [findBusinessApp]
-select a.*, oa.approvedappno, oa.contact_email
+select a.*, 
+	oa.approvedappno, oa.contact_email, oa.contact_mobileno, oa.partnername
 from business_application a 
 	inner join business b on b.objid = a.business_objid 
 	inner join online_business_application oa on oa.objid = a.objid 

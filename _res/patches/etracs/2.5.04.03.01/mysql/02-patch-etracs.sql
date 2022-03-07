@@ -1,171 +1,194 @@
-drop table if exists rpt_syncdata_item;
-drop table if exists rpt_syncdata_forsync;
-drop table if exists rpt_syncdata_error;
-drop table if exists rpt_syncdata_completed;
-drop table if exists rpt_syncdata;
+-- ## 2021-11-06
 
-CREATE TABLE `rpt_syncdata` (
+INSERT INTO sys_usergroup (objid, title, domain, userclass, orgclass, role) 
+VALUES ('TREASURY.MANAGER', 'TREASURY MANAGER', 'TREASURY', 'usergroup', NULL, 'MANAGER');
+
+INSERT INTO sys_var (name, value, description, datatype, category) 
+VALUES ('treasury_remote_orgs', '', NULL, 'text', 'TC');
+
+
+update remittance_af raf, af_control_detail d set 
+  raf.controlid = d.controlid, 
+  raf.receivedstartseries = d.receivedstartseries, 
+  raf.receivedendseries = d.receivedendseries, 
+  raf.qtyreceived = d.qtyreceived, 
+  raf.beginstartseries = d.beginstartseries, 
+  raf.beginendseries = d.beginendseries, 
+  raf.qtybegin = d.qtybegin, 
+  raf.issuedstartseries = d.issuedstartseries, 
+  raf.issuedendseries = d.issuedendseries, 
+  raf.qtyissued = d.qtyissued, 
+  raf.endingstartseries = d.endingstartseries, 
+  raf.endingendseries = d.endingendseries, 
+  raf.qtyending = d.qtyending, 
+  raf.qtycancelled = d.qtycancelled, 
+  raf.remarks = d.remarks 
+where raf.objid = d.objid 
+  and raf.controlid is null 
+; 
+
+delete from af_control_detail where reftype='remittance' and txntype = 'forward' 
+; 
+
+
+insert into sys_usergroup_member (
+  objid, usergroup_objid, user_objid, user_username, user_firstname, user_lastname 
+) 
+select * 
+from ( 
+  select 
+    concat('UGM-',MD5(concat(u.objid, ug.objid))) as objid, 
+    ug.objid as usergroup_objid, u.objid as user_objid, 
+    u.username as user_username, u.firstname as user_firstname, u.lastname as user_lastname
+  from sys_user u, sys_usergroup ug 
+  where u.username='admin'
+    and ug.domain='TREASURY' 
+    and ug.objid in ('TREASURY.AFO_ADMIN','TREASURY.COLLECTOR_ADMIN','TREASURY.LIQ_OFFICER_ADMIN','TREASURY.MANAGER')
+)t0 
+where (
+  select count(*) from sys_usergroup_member 
+  where usergroup_objid = t0.usergroup_objid 
+    and user_objid = t0.user_objid 
+) = 0 
+;
+
+
+
+-- ## 2021-11-25
+
+create table online_business_application_doc (
+  objid varchar(50) not null, 
+  parentid varchar(50) not null, 
+  doc_type varchar(50) not null, 
+  doc_title varchar(255) not null, 
+  attachment_objid varchar(50) not null,
+  attachment_name varchar(255) not null, 
+  attachment_path varchar(255) not null,
+  fs_filetype varchar(10) not null, 
+  fs_filelocid varchar(50) null, 
+  fs_fileid varchar(50) null, 
+  lockid varchar(50) null, 
+  constraint pk_online_business_application_doc PRIMARY KEY (`objid`) 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+create index ix_parentid on online_business_application_doc (parentid)
+;
+create index ix_attachment_objid on online_business_application_doc (attachment_objid)
+;
+create index ix_fs_filelocid on online_business_application_doc (fs_filelocid)
+;
+create index ix_fs_fileid on online_business_application_doc (fs_fileid)
+;
+create index ix_lockid on online_business_application_doc (lockid)
+;
+alter table online_business_application_doc 
+  add CONSTRAINT fk_online_business_application_doc_parentid 
+  FOREIGN KEY (`parentid`) REFERENCES `online_business_application` (`objid`)
+; 
+
+
+CREATE TABLE `online_business_application_doc_fordownload` (
   `objid` varchar(50) NOT NULL,
-  `state` varchar(25) NOT NULL,
-  `refid` varchar(50) NOT NULL,
-  `reftype` varchar(50) NOT NULL,
-  `refno` varchar(50) NOT NULL,
-  `action` varchar(50) NOT NULL,
-  `dtfiled` datetime NOT NULL,
-  `orgid` varchar(50) NOT NULL,
-  `remote_orgid` varchar(50) DEFAULT NULL,
-  `remote_orgcode` varchar(5) DEFAULT NULL,
-  `remote_orgclass` varchar(25) DEFAULT NULL,
-  `sender_objid` varchar(50) DEFAULT NULL,
-  `sender_name` varchar(255) DEFAULT NULL,
-  `sender_title` varchar(80) DEFAULT NULL,
-  `info` text,
-  PRIMARY KEY (`objid`),
-  KEY `ix_state` (`state`),
-  KEY `ix_refid` (`refid`),
-  KEY `ix_refno` (`refno`),
-  KEY `ix_orgid` (`orgid`)
+  `scheduledate` datetime NOT NULL,
+  `msg` text NULL,
+  `filesize` int NOT NULL DEFAULT '0',
+  `bytesprocessed` int NOT NULL DEFAULT '0',
+  `lockid` varchar(50) NULL,
+  constraint pk_online_business_application_doc_fordownload PRIMARY KEY (`objid`) 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
+create index ix_scheduledate on online_business_application_doc_fordownload (scheduledate)
+;
+create index ix_lockid on online_business_application_doc_fordownload (lockid)
+;
+alter table online_business_application_doc_fordownload 
+  add CONSTRAINT `fk_online_business_application_doc_fordownload_objid` 
+	FOREIGN KEY (`objid`) REFERENCES `online_business_application_doc` (`objid`)
+; 
 
-CREATE TABLE `rpt_syncdata_item` (
+
+
+CREATE TABLE `sys_fileloc` (
   `objid` varchar(50) NOT NULL,
-  `parentid` varchar(50) NOT NULL,
-  `state` varchar(25) NOT NULL,
-  `refid` varchar(50) NOT NULL,
-  `reftype` varchar(50) NOT NULL,
-  `refno` varchar(50) NOT NULL,
-  `action` varchar(50) NOT NULL,
-  `idx` int(11) NOT NULL,
+  `url` varchar(255) NOT NULL,
+  `rootdir` varchar(255) NULL,
+  `defaultloc` int NOT NULL,
+  `loctype` varchar(20) NULL,
+  `user_name` varchar(50) NULL,
+  `user_pwd` varchar(50) NULL,
   `info` text,
-  PRIMARY KEY (`objid`),
-  KEY `ix_parentid` (`parentid`),
-  KEY `ix_state` (`state`),
-  KEY `ix_refid` (`refid`),
-  KEY `ix_refno` (`refno`),
-  CONSTRAINT `FK_parentid_rpt_syncdata` FOREIGN KEY (`parentid`) REFERENCES `rpt_syncdata` (`objid`)
+  constraint pk_sys_fileloc PRIMARY KEY (`objid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
+create index `ix_loctype` on sys_fileloc (`loctype`)
+;
 
-CREATE TABLE `rpt_syncdata_forsync` (
+CREATE TABLE `sys_file` (
   `objid` varchar(50) NOT NULL,
-  `reftype` varchar(50) NOT NULL,
-  `refno` varchar(50) NOT NULL,
-  `action` varchar(50) NOT NULL,
-  `orgid` varchar(50) NOT NULL,
-  `dtfiled` datetime NOT NULL,
-  `createdby_objid` varchar(50) DEFAULT NULL,
-  `createdby_name` varchar(255) DEFAULT NULL,
-  `createdby_title` varchar(50) DEFAULT NULL,
-  `remote_orgid` varchar(15) DEFAULT NULL,
-  `state` varchar(25) DEFAULT NULL,
-  `info` text,
-  PRIMARY KEY (`objid`),
-  KEY `ix_refno` (`refno`),
-  KEY `ix_orgid` (`orgid`),
-  KEY `ix_state` (`state`)
+  `title` varchar(50) NULL,
+  `filetype` varchar(50) NULL,
+  `dtcreated` datetime NULL,
+  `createdby_objid` varchar(50) NULL,
+  `createdby_name` varchar(255) NULL,
+  `keywords` varchar(255) NULL,
+  `description` text,
+  constraint pk_sys_file PRIMARY KEY (`objid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
+create index `ix_dtcreated` on sys_file (`dtcreated`)
+;
+create index `ix_createdby_objid` on sys_file (`createdby_objid`)
+;
+create index `ix_keywords` on sys_file (`keywords`)
+;
+create index `ix_title` on sys_file (`title`)
+;
 
-CREATE TABLE `rpt_syncdata_error` (
+CREATE TABLE `sys_fileitem` (
   `objid` varchar(50) NOT NULL,
-  `filekey` varchar(1000) NOT NULL,
-  `error` text,
-  `refid` varchar(50) NOT NULL,
-  `reftype` varchar(50) NOT NULL,
-  `refno` varchar(50) NOT NULL,
-  `action` varchar(50) NOT NULL,
-  `idx` int(11) NOT NULL,
-  `info` text,
-  `parent` text,
-  `remote_orgid` varchar(50) DEFAULT NULL,
-  `remote_orgcode` varchar(5) DEFAULT NULL,
-  `remote_orgclass` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`objid`),
-  KEY `ix_refid` (`refid`),
-  KEY `ix_refno` (`refno`),
-  KEY `ix_filekey` (`filekey`(255)),
-  KEY `ix_remote_orgid` (`remote_orgid`),
-  KEY `ix_remote_orgcode` (`remote_orgcode`)
+  `state` varchar(50) NULL,
+  `parentid` varchar(50) NULL,
+  `dtcreated` datetime NULL,
+  `createdby_objid` varchar(50) NULL,
+  `createdby_name` varchar(255) NULL,
+  `caption` varchar(155) NULL,
+  `remarks` varchar(255) NULL,
+  `filelocid` varchar(50) NULL,
+  `filesize` int NULL,
+  `thumbnail` text,
+  constraint pk_sys_fileitem PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+create index `ix_parentid` on sys_fileitem (`parentid`)
+;
+create index `ix_filelocid` on sys_fileitem (`filelocid`)
+;
+alter table sys_fileitem 
+  add CONSTRAINT `fk_sys_fileitem_parentid` 
+  FOREIGN KEY (`parentid`) REFERENCES `sys_file` (`objid`)
+;
+
+
+alter table online_business_application_doc add `fs_state` varchar(20) NOT NULL
+;
+
+INSERT INTO sys_fileloc (objid, url, rootdir, defaultloc, loctype, user_name, user_pwd, info) 
+VALUES ('bpls-fileserver', '127.0.0.1', NULL, '0', 'ftp', 'ftpuser', 'P@ssw0rd#', NULL);
+
+INSERT INTO sys_fileloc (objid, url, rootdir, defaultloc, loctype, user_name, user_pwd, info) 
+VALUES ('bpls-fileserver-pub', '127.0.0.1', NULL, '0', 'ftp', 'ftpuser', 'P@ssw0rd#', NULL);
+
+
+
+-- ## 2021-11-26
+
+CREATE TABLE `sys_email_template` (
+  `objid` varchar(50) NOT NULL,
+  `subject` varchar(255) NOT NULL,
+  `message` longtext NOT NULL,
+  PRIMARY KEY (`objid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
 
-CREATE TABLE `rpt_syncdata_completed` (
-  `objid` varchar(255) NOT NULL,
-  `idx` int(255) DEFAULT NULL,
-  `action` varchar(100) DEFAULT NULL,
-  `refno` varchar(50) DEFAULT NULL,
-  `refid` varchar(50) DEFAULT NULL,
-  `reftype` varchar(50) DEFAULT NULL,
-  `parent_orgid` varchar(50) DEFAULT NULL,
-  `sender_name` varchar(255) DEFAULT NULL,
-  `sender_title` varchar(255) DEFAULT NULL,
-  `dtcreated` datetime DEFAULT NULL,
-  PRIMARY KEY (`objid`),
-  KEY `ix_refno` (`refno`),
-  KEY `ix_refid` (`refid`),
-  KEY `ix_parent_orgid` (`parent_orgid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
-;
-
-CREATE TABLE `rpt_syncdata_fordownload` (
-  `objid` varchar(255) NOT NULL,
-  `etag` varchar(64) NOT NULL,
-  `error` int(255) NOT NULL,
-  PRIMARY KEY (`objid`),
-  KEY `ix_error` (`error`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
-;
-
-alter table rptcompromise_item add qtr int
-;
-
-alter table rpu add stewardparentrpumasterid varchar(50)
-;
-
-drop view if exists vw_batchgr
-;
-
-create view `vw_batchgr` as 
-select `bg`.`objid` as `objid`,`bg`.`state` as `state`,`bg`.`ry` as `ry`,`bg`.`lgu_objid` as `lgu_objid`,`bg`.`barangay_objid` as `barangay_objid`,`bg`.`rputype` as `rputype`,`bg`.`classification_objid` as `classification_objid`,`bg`.`section` as `section`,`bg`.`memoranda` as `memoranda`,`bg`.`txntype_objid` as `txntype_objid`,`bg`.`txnno` as `txnno`,`bg`.`txndate` as `txndate`,`bg`.`effectivityyear` as `effectivityyear`,`bg`.`effectivityqtr` as `effectivityqtr`,`bg`.`originlgu_objid` as `originlgu_objid`,`l`.`name` as `lgu_name`,`b`.`name` as `barangay_name`,`b`.`pin` as `barangay_pin`,`pc`.`name` as `classification_name`,`t`.`objid` as `taskid`,`t`.`state` as `taskstate`,`t`.`assignee_objid` as `assignee_objid` from ((((`batchgr` `bg` join `sys_org` `l` on((`bg`.`lgu_objid` = `l`.`objid`))) left join `barangay` `b` on((`bg`.`barangay_objid` = `b`.`objid`))) left join `propertyclassification` `pc` on((`bg`.`classification_objid` = `pc`.`objid`))) left join `batchgr_task` `t` on(((`bg`.`objid` = `t`.`refid`) and isnull(`t`.`enddate`))))
-;
-
-drop view if exists vw_landtax_report_rptdelinquency_detail
-;
-drop view if exists vw_landtax_report_rptdelinquency
-;
-
-CREATE VIEW `vw_landtax_report_rptdelinquency_detail` AS select `ri`.`objid` AS `objid`,`ri`.`rptledgerid` AS `rptledgerid`,`ri`.`barangayid` AS `barangayid`,`ri`.`year` AS `year`,`ri`.`qtr` AS `qtr`,`r`.`dtgenerated` AS `dtgenerated`,`r`.`dtcomputed` AS `dtcomputed`,`r`.`generatedby_name` AS `generatedby_name`,`r`.`generatedby_title` AS `generatedby_title`,(case when (`ri`.`revtype` = 'basic') then `ri`.`amount` else 0 end) AS `basic`,(case when (`ri`.`revtype` = 'basic') then `ri`.`interest` else 0 end) AS `basicint`,(case when (`ri`.`revtype` = 'basic') then `ri`.`discount` else 0 end) AS `basicdisc`,(case when (`ri`.`revtype` = 'basic') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `basicdp`,(case when (`ri`.`revtype` = 'basic') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `basicnet`,(case when (`ri`.`revtype` = 'basicidle') then `ri`.`amount` else 0 end) AS `basicidle`,(case when (`ri`.`revtype` = 'basicidle') then `ri`.`interest` else 0 end) AS `basicidleint`,(case when (`ri`.`revtype` = 'basicidle') then `ri`.`discount` else 0 end) AS `basicidledisc`,(case when (`ri`.`revtype` = 'basicidle') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `basicidledp`,(case when (`ri`.`revtype` = 'basicidle') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `basicidlenet`,(case when (`ri`.`revtype` = 'sef') then `ri`.`amount` else 0 end) AS `sef`,(case when (`ri`.`revtype` = 'sef') then `ri`.`interest` else 0 end) AS `sefint`,(case when (`ri`.`revtype` = 'sef') then `ri`.`discount` else 0 end) AS `sefdisc`,(case when (`ri`.`revtype` = 'sef') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `sefdp`,(case when (`ri`.`revtype` = 'sef') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `sefnet`,(case when (`ri`.`revtype` = 'firecode') then `ri`.`amount` else 0 end) AS `firecode`,(case when (`ri`.`revtype` = 'firecode') then `ri`.`interest` else 0 end) AS `firecodeint`,(case when (`ri`.`revtype` = 'firecode') then `ri`.`discount` else 0 end) AS `firecodedisc`,(case when (`ri`.`revtype` = 'firecode') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `firecodedp`,(case when (`ri`.`revtype` = 'firecode') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `firecodenet`,(case when (`ri`.`revtype` = 'sh') then `ri`.`amount` else 0 end) AS `sh`,(case when (`ri`.`revtype` = 'sh') then `ri`.`interest` else 0 end) AS `shint`,(case when (`ri`.`revtype` = 'sh') then `ri`.`discount` else 0 end) AS `shdisc`,(case when (`ri`.`revtype` = 'sh') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `shdp`,(case when (`ri`.`revtype` = 'sh') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `shnet`,((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) AS `total` from (`report_rptdelinquency_item` `ri` join `report_rptdelinquency` `r` on((`ri`.`parentid` = `r`.`objid`)))
-;
-
-CREATE VIEW `vw_landtax_report_rptdelinquency` AS select `ri`.`objid` AS `objid`,`ri`.`rptledgerid` AS `rptledgerid`,`ri`.`barangayid` AS `barangayid`,`ri`.`year` AS `year`,`ri`.`qtr` AS `qtr`,`r`.`dtgenerated` AS `dtgenerated`,`r`.`dtcomputed` AS `dtcomputed`,`r`.`generatedby_name` AS `generatedby_name`,`r`.`generatedby_title` AS `generatedby_title`,(case when (`ri`.`revtype` = 'basic') then `ri`.`amount` else 0 end) AS `basic`,(case when (`ri`.`revtype` = 'basic') then `ri`.`interest` else 0 end) AS `basicint`,(case when (`ri`.`revtype` = 'basic') then `ri`.`discount` else 0 end) AS `basicdisc`,(case when (`ri`.`revtype` = 'basic') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `basicdp`,(case when (`ri`.`revtype` = 'basic') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `basicnet`,(case when (`ri`.`revtype` = 'basicidle') then `ri`.`amount` else 0 end) AS `basicidle`,(case when (`ri`.`revtype` = 'basicidle') then `ri`.`interest` else 0 end) AS `basicidleint`,(case when (`ri`.`revtype` = 'basicidle') then `ri`.`discount` else 0 end) AS `basicidledisc`,(case when (`ri`.`revtype` = 'basicidle') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `basicidledp`,(case when (`ri`.`revtype` = 'basicidle') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `basicidlenet`,(case when (`ri`.`revtype` = 'sef') then `ri`.`amount` else 0 end) AS `sef`,(case when (`ri`.`revtype` = 'sef') then `ri`.`interest` else 0 end) AS `sefint`,(case when (`ri`.`revtype` = 'sef') then `ri`.`discount` else 0 end) AS `sefdisc`,(case when (`ri`.`revtype` = 'sef') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `sefdp`,(case when (`ri`.`revtype` = 'sef') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `sefnet`,(case when (`ri`.`revtype` = 'firecode') then `ri`.`amount` else 0 end) AS `firecode`,(case when (`ri`.`revtype` = 'firecode') then `ri`.`interest` else 0 end) AS `firecodeint`,(case when (`ri`.`revtype` = 'firecode') then `ri`.`discount` else 0 end) AS `firecodedisc`,(case when (`ri`.`revtype` = 'firecode') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `firecodedp`,(case when (`ri`.`revtype` = 'firecode') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `firecodenet`,(case when (`ri`.`revtype` = 'sh') then `ri`.`amount` else 0 end) AS `sh`,(case when (`ri`.`revtype` = 'sh') then `ri`.`interest` else 0 end) AS `shint`,(case when (`ri`.`revtype` = 'sh') then `ri`.`discount` else 0 end) AS `shdisc`,(case when (`ri`.`revtype` = 'sh') then (`ri`.`interest` - `ri`.`discount`) else 0 end) AS `shdp`,(case when (`ri`.`revtype` = 'sh') then ((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) else 0 end) AS `shnet`,((`ri`.`amount` + `ri`.`interest`) - `ri`.`discount`) AS `total` from (`report_rptdelinquency_item` `ri` join `report_rptdelinquency` `r` on((`ri`.`parentid` = `r`.`objid`)))
-;
-
-drop table if exists vw_rptpayment_item_detail
-;
-
-drop view if exists vw_rptpayment_item_detail
-;
-
-
-CREATE VIEW `vw_rptpayment_item_detail` AS select `rpi`.`objid` AS `objid`,`rpi`.`parentid` AS `parentid`,`rpi`.`rptledgerfaasid` AS `rptledgerfaasid`,`rpi`.`year` AS `year`,`rpi`.`qtr` AS `qtr`,`rpi`.`revperiod` AS `revperiod`,(case when (`rpi`.`revtype` = 'basic') then `rpi`.`amount` else 0 end) AS `basic`,(case when (`rpi`.`revtype` = 'basic') then `rpi`.`interest` else 0 end) AS `basicint`,(case when (`rpi`.`revtype` = 'basic') then `rpi`.`discount` else 0 end) AS `basicdisc`,(case when (`rpi`.`revtype` = 'basic') then (`rpi`.`interest` - `rpi`.`discount`) else 0 end) AS `basicdp`,(case when (`rpi`.`revtype` = 'basic') then ((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) else 0 end) AS `basicnet`,(case when (`rpi`.`revtype` = 'basicidle') then ((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) else 0 end) AS `basicidle`,(case when (`rpi`.`revtype` = 'basicidle') then `rpi`.`interest` else 0 end) AS `basicidleint`,(case when (`rpi`.`revtype` = 'basicidle') then `rpi`.`discount` else 0 end) AS `basicidledisc`,(case when (`rpi`.`revtype` = 'basicidle') then (`rpi`.`interest` - `rpi`.`discount`) else 0 end) AS `basicidledp`,(case when (`rpi`.`revtype` = 'sef') then `rpi`.`amount` else 0 end) AS `sef`,(case when (`rpi`.`revtype` = 'sef') then `rpi`.`interest` else 0 end) AS `sefint`,(case when (`rpi`.`revtype` = 'sef') then `rpi`.`discount` else 0 end) AS `sefdisc`,(case when (`rpi`.`revtype` = 'sef') then (`rpi`.`interest` - `rpi`.`discount`) else 0 end) AS `sefdp`,(case when (`rpi`.`revtype` = 'sef') then ((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) else 0 end) AS `sefnet`,(case when (`rpi`.`revtype` = 'firecode') then ((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) else 0 end) AS `firecode`,(case when (`rpi`.`revtype` = 'sh') then `rpi`.`amount` else 0 end) AS `sh`,(case when (`rpi`.`revtype` = 'sh') then `rpi`.`interest` else 0 end) AS `shint`,(case when (`rpi`.`revtype` = 'sh') then `rpi`.`discount` else 0 end) AS `shdisc`,(case when (`rpi`.`revtype` = 'sh') then (`rpi`.`interest` - `rpi`.`discount`) else 0 end) AS `shdp`,(case when (`rpi`.`revtype` = 'sh') then ((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) else 0 end) AS `shnet`,((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) AS `amount`,`rpi`.`partialled` AS `partialled` from `rptpayment_item` `rpi`
-;
-
-
-DROP VIEW IF EXISTS `vw_rptpayment_item` 
-;
-
-CREATE VIEW `vw_rptpayment_item` AS select `x`.`parentid` AS `parentid`,`x`.`rptledgerfaasid` AS `rptledgerfaasid`,`x`.`year` AS `year`,`x`.`qtr` AS `qtr`,`x`.`revperiod` AS `revperiod`,sum(`x`.`basic`) AS `basic`,sum(`x`.`basicint`) AS `basicint`,sum(`x`.`basicdisc`) AS `basicdisc`,sum(`x`.`basicdp`) AS `basicdp`,sum(`x`.`basicnet`) AS `basicnet`,sum(`x`.`basicidle`) AS `basicidle`,sum(`x`.`basicidleint`) AS `basicidleint`,sum(`x`.`basicidledisc`) AS `basicidledisc`,sum(`x`.`basicidledp`) AS `basicidledp`,sum(`x`.`sef`) AS `sef`,sum(`x`.`sefint`) AS `sefint`,sum(`x`.`sefdisc`) AS `sefdisc`,sum(`x`.`sefdp`) AS `sefdp`,sum(`x`.`sefnet`) AS `sefnet`,sum(`x`.`firecode`) AS `firecode`,sum(`x`.`sh`) AS `sh`,sum(`x`.`shint`) AS `shint`,sum(`x`.`shdisc`) AS `shdisc`,sum(`x`.`shdp`) AS `shdp`,sum(`x`.`amount`) AS `amount`,max(`x`.`partialled`) AS `partialled` from `vw_rptpayment_item_detail` `x` group by `x`.`parentid`,`x`.`rptledgerfaasid`,`x`.`year`,`x`.`qtr`,`x`.`revperiod`
-;
-
-CREATE VIEW `vw_newly_assessed_property` AS select `f`.`objid` AS `objid`,`f`.`owner_name` AS `owner_name`,`f`.`tdno` AS `tdno`,`b`.`name` AS `barangay`,(case when (`f`.`rputype` = 'land') then 'LAND' when (`f`.`rputype` = 'bldg') then 'BUILDING' when (`f`.`rputype` = 'mach') then 'MACHINERY' when (`f`.`rputype` = 'planttree') then 'PLANT/TREE' else 'MISCELLANEOUS' end) AS `rputype`,`f`.`totalav` AS `totalav`,`f`.`effectivityyear` AS `effectivityyear` from (`faas_list` `f` join `barangay` `b` on((`f`.`barangayid` = `b`.`objid`))) where ((`f`.`state` in ('CURRENT','CANCELLED')) and (`f`.`txntype_objid` = 'ND'))
-;
-
-CREATE VIEW `vw_real_property_payment` AS select `cv`.`controldate` AS `cv_controldate`,`rem`.`controldate` AS `rem_controldate`,`rl`.`owner_name` AS `owner_name`,`rl`.`tdno` AS `tdno`,`pc`.`name` AS `classification`,(case when (`rl`.`rputype` = 'land') then 'LAND' when (`rl`.`rputype` = 'bldg') then 'BUILDING' when (`rl`.`rputype` = 'mach') then 'MACHINERY' when (`rl`.`rputype` = 'planttree') then 'PLANT/TREE' else 'MISCELLANEOUS' end) AS `rputype`,`b`.`name` AS `barangay`,((`rpi`.`amount` + `rpi`.`interest`) - `rpi`.`discount`) AS `amount`,(case when isnull(`v`.`objid`) then 0 else 1 end) AS `voided` from ((((((((`collectionvoucher` `cv` join `remittance` `rem` on((`cv`.`objid` = `rem`.`collectionvoucherid`))) join `cashreceipt` `cr` on((`rem`.`objid` = `cr`.`remittanceid`))) join `rptpayment` `rp` on((`cr`.`objid` = `rp`.`receiptid`))) join `rptpayment_item` `rpi` on((`rp`.`objid` = `rpi`.`parentid`))) join `rptledger` `rl` on((`rp`.`refid` = `rl`.`objid`))) join `barangay` `b` on((`rl`.`barangayid` = `b`.`objid`))) join `propertyclassification` `pc` on((`rl`.`classification_objid` = `pc`.`objid`))) left join `cashreceipt_void` `v` on((`cr`.`objid` = `v`.`receiptid`)))
-;
-
-CREATE VIEW `vw_newly_assessed_property` AS select `f`.`objid` AS `objid`,`f`.`owner_name` AS `owner_name`,`f`.`tdno` AS `tdno`,`b`.`name` AS `barangay`,(case when (`f`.`rputype` = 'land') then 'LAND' when (`f`.`rputype` = 'bldg') then 'BUILDING' when (`f`.`rputype` = 'mach') then 'MACHINERY' when (`f`.`rputype` = 'planttree') then 'PLANT/TREE' else 'MISCELLANEOUS' end) AS `rputype`,`f`.`totalav` AS `totalav`,`f`.`effectivityyear` AS `effectivityyear` from (`faas_list` `f` join `barangay` `b` on((`f`.`barangayid` = `b`.`objid`))) where ((`f`.`state` in ('CURRENT','CANCELLED')) and (`f`.`txntype_objid` = 'ND'))
-;
-
-
-
+INSERT INTO `sys_email_template` (`objid`, `subject`, `message`) 
+VALUES ('business_permit', 'Business Permit ${permitno}', 'Dear valued customer, <br><br>Please see attached Business Permit document. This is an electronic transaction. Please do not reply.');
