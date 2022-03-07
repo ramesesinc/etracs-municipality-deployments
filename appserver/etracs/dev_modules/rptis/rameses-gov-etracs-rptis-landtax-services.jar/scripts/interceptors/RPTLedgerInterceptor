@@ -78,13 +78,16 @@ class RPTLedgerInterceptor
     public void postFaasToRPTLedger(evt){
         def faas = evt.result 
 
+        def posttoledger = util.toBoolean(var.post_approved_faas_to_ledger, true)
+        if (!posttoledger) return
+
         def org = em_org.select('orgclass').find([root: 1]).first()
         if (org.orgclass.equalsIgnoreCase('PROVINCE')) {
             if (isLedgerExisting(faas)){
                 svc.postLedgerFaasData(faas)
             }
         } else {
-            if (util.isTrue(faas.datacapture) && hasCurrentPreviousFaas(faas)) {
+            if (util.isTrue(faas.datacapture) && hasActiveLedger(faas)) {
                 svc.postLedgerFaasData(faas)
             } else if (util.isTrue(faas.datacapture)) {
                 postNewLedger(faas)
@@ -104,8 +107,12 @@ class RPTLedgerInterceptor
         }
     }
 
-    def hasCurrentPreviousFaas(faas) {
-        return faas.previousfaases.find{it.prevfaasid != null} != null
+    def hasActiveLedger(faas) {
+        def prevfaas = faas.previousfaases.find{it.prevfaasid != null}
+        if (prevfaas) {
+            return em_ledger.select('objid').find([faasid: prevfaas.prevfaasid]).first() != null;
+        }
+        return false;
     }
 
     def isLedgerExisting(faas){
@@ -125,16 +132,13 @@ class RPTLedgerInterceptor
     }
 
     void postNewLedger(faas){
-        def posttoledger = util.toBoolean(var.post_approved_faas_to_ledger,true)
-        if (posttoledger){
-            faas.txntype = em_faas_txntype.find([objid:faas.txntype.objid]).first()
-            def manualledger = findManualLedger(faas)
-            if (manualledger){
-                svc.reconcileManualLedger(faas, manualledger)
-            }
-            else {
-                svc.postNewLedger(faas)
-            }
+        faas.txntype = em_faas_txntype.find([objid:faas.txntype.objid]).first()
+        def manualledger = findManualLedger(faas)
+        if (manualledger){
+            svc.reconcileManualLedger(faas, manualledger)
+        }
+        else {
+            svc.postNewLedger(faas)
         }
     }
 

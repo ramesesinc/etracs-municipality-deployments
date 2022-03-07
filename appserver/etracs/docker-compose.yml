@@ -33,7 +33,6 @@ services:
       - ./client/reports:/apps/server/templates
       - ../../_custom/module-client/etracs:/apps/server/templates/custom
 
-
       ## mounted patch folders
       - ./dev_modules/bpls:/services/modules/bpls
       - ./dev_modules/bpls.conf:/apps/etracs25/modules.conf.d/bpls.conf
@@ -46,6 +45,15 @@ services:
 
       - ./dev_modules/treasury:/services/modules/treasury
       - ./dev_modules/_treasury.conf:/apps/etracs25/modules.conf.d/_treasury.conf
+
+      - ./dev_modules/gdx:/services/modules/gdx
+      - ./dev_modules/gdx.conf:/apps/etracs25/modules.conf.d/gdx.conf
+
+      - ./dev_modules/rptis/rameses-gov-etracs-rptis-landtax-report-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-landtax-report-services.jar
+      - ./dev_modules/rptis/rameses-gov-etracs-rptis-landtax-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-landtax-services.jar
+      - ./dev_modules/rptis/rameses-gov-etracs-rptis-report-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-report-services.jar
+      - ./dev_modules/rptis/rameses-gov-etracs-rptis-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-services.jar
+      - ./dev_modules/rptis/rameses-gov-etracs-rptis-sync2-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-sync2-services.jar
 
       ## mounted lib
       - ../../_res/lib/osiris2-report.jar:/apps/server/lib/osiris2-report.jar

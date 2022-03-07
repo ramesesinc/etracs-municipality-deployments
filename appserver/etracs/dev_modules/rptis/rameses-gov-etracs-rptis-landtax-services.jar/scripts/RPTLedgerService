@@ -81,6 +81,12 @@ class RPTLedgerService
     @DataContext('rpttaxcredit')
     def em_credit
 
+    @DataContext('faas')
+    def em_faas
+
+    @DataContext('propertyclassification')
+    def em_classification
+
 
     @ProxyMethod
     public void validateAndBuildManualLedger(ledger){
@@ -166,7 +172,7 @@ class RPTLedgerService
 
     @ProxyMethod
     public def postNewLedger(faas){
-        def ledgers = em_rptledger.find([tdno:faas.tdno]).list()
+        def ledgers = em_rptledger.find([faasid:faas.objid]).list()
         def ledger = null
         if (!checkFaasHasLedger(faas, ledgers)){
             ledger = createLedgerInfo(faas)
@@ -274,7 +280,7 @@ class RPTLedgerService
 
     @ProxyMethod
     public def getTaxableFaases(ledger){
-        return em_rptledger_faas.find([rptledgerid:ledger.objid,state:'APPROVED',taxable:true])
+        return em_rptledger_faas.find([rptledgerid:ledger.objid,state:'APPROVED',taxable: 1])
                                 .orderBy('fromyear,fromqtr')
                                 .list()
     }
@@ -368,6 +374,9 @@ class RPTLedgerService
 
     @ProxyMethod
     public def checkLedgerApprovedState(faasid){
+        def posttoledger = util.toBoolean(var.post_approved_faas_to_ledger, true)
+        if (!posttoledger) return
+        
         def ledger = em_rptledger.select('state').find([faasid:faasid]).first()
         if (!ledger && !'PROVINCE'.equalsIgnoreCase(env.ORGCLASS)){
             throw new Exception('Ledger does not exist or has already been deleted.')
@@ -381,6 +390,9 @@ class RPTLedgerService
 
     @ProxyMethod
     public void checkLedgerBalance(faasid){
+        def posttoledger = util.toBoolean(var.post_approved_faas_to_ledger, true)
+        if (!posttoledger) return
+        
         def ledger = em_rptledger.find([faasid:faasid]).first() 
         if (!ledger)
             throw new Exception('Ledger does not exist or has already been deleted.')
@@ -413,9 +425,9 @@ class RPTLedgerService
             createLedgerFaas(ledger, faas).each{
                 postLedgerFaas(it) 
             }
-            postTaxDifference(ledger, faas)
             updateLedgerFaasInfo(faas, ledger)
             adjustLedgerItemByEffectivity(faas, ledger)
+            postTaxDifference(ledger, faas)
         }
     }    
 
@@ -434,9 +446,42 @@ class RPTLedgerService
     }
 
     @ProxyMethod
+    public def postPreviousPayment(payment) {
+        payment.dtposted = dtSvc.serverDate 
+        payment.postedby = env.NAME
+        payment.postedbytitle = env.JOBTITLE
+        payment.voided = false 
+        payment.rptledger = [objid:payment.refid]
+        em_rptpayment.create(payment)
+        return payment
+    }
+
+    @ProxyMethod
+    public def getOldestPayment(ledger) {
+        ledger = em_rptledger.select('objid,lastyearpaid,lastqtrpaid').find([objid: ledger.objid]).first();
+        if (!ledger) throw new Exception('Ledger does not exist or has already been deleted.');
+        
+        def oldestpmt = [:];
+        def pmt  = em_rptpayment.find([refid: ledger.objid]).select('fromyear,fromqtr,toyear,toqtr').orderBy('fromyear,fromqtr desc').first();
+        if (pmt) {
+            oldestpmt.fromyear = pmt.toqtr == 4 ? pmt.fromyear - 1 : pmt.fromyear;
+            oldestpmt.fromqtr = pmt.toqtr == 4 ? 1 : pmt.toqtr + 1;
+            oldestpmt.toyear = pmt.toqtr == 4 ? pmt.fromyear - 1 : pmt.fromyear;
+            oldestpmt.toqtr = 4;
+        } else {
+            oldestpmt.fromyear = ledger.lastyearpaid - 1;
+            oldestpmt.fromqtr = 1
+            oldestpmt.toyear = ledger.lastyearpaid - 1;
+            oldestpmt.toqtr = 4
+        }
+
+        return oldestpmt;
+    }
+
+    @ProxyMethod
     public def postLedgerFaas( ledgerfaas ) {
         def param = [rptledgerid:ledgerfaas.rptledgerid, state: 'APPROVED', fromyear: ledgerfaas.fromyear]
-        def ledgerfaases = em_rptledger_faas.where('rptledgerid = :rptledgerid and state = :state and fromyear < :fromyear', param)
+        def ledgerfaases = em_rptledger_faas.where('rptledgerid = :rptledgerid and state = :state and fromyear <= :fromyear', param)
                                             .orderBy('fromyear desc, tdno desc')
                                             .list()
         if (ledgerfaases) {
@@ -529,10 +574,14 @@ class RPTLedgerService
 
     @ProxyMethod
     public def createAvDifference(difference){
-        def rptledgerfaas = em_rptledger_faas.find([
-            rptledgerid: difference.parent.objid,
-            tdno: difference.parent.tdno,
-        ]).first()
+        def rptledgerfaas = em_rptledger_faas
+                .find([
+                    rptledgerid: difference.parent.objid,
+                    classification_objid: difference.classification.objid,
+                    actualuse_objid: difference.actualuse.objid,
+                ])
+                .where(':fromyear >= fromyear and (:toyear <= toyear or toyear = 0)', [fromyear: difference.year, toyear: difference.year])
+                .first()
 
         if (!rptledgerfaas) {
             throw new Exception('Ledger History for year ' + difference.year + ' is not defined.')
@@ -546,6 +595,7 @@ class RPTLedgerService
 
         def existingdiff = em_avdifference.find([
             parent_objid: difference.parent.objid,
+            rptledgerfaas_objid: difference.rptledgerfaas.objid,
             year: difference.year,
             paid: 0,
         ]).first()
@@ -872,13 +922,21 @@ class RPTLedgerService
             return
         }
 
-        def currfaas = em_rptledger_faas.find([rptledgerid: ledger.objid, fromyear:faas.effectivityyear]).first();
+        def currfaas = em_rptledger_faas.find([rptledgerid: ledger.objid, faasid:faas.objid]).first();
         def prevfaas = em_rptledger_faas.find([rptledgerid: ledger.objid, toyear:faas.effectivityyear - 1]).first();
+        if (!prevfaas) {
+            //try for same year and cancelled state
+            prevfaas = em_rptledger_faas.find([rptledgerid: ledger.objid, toyear:faas.effectivityyear, state: 'CANCELLED']).first();
+        }
+
+        em_rptledger_faas.find([rptledgerid: ledger.objid]).orderBy('fromyear').list().each{ println it.tdno + '   ' + it.fromyear + ' : ' + it.toyear + ' : ' + it.state }
+        
         if (!prevfaas) {
             return
         }
 
         def avdifference = faas.rpu.totalav - prevfaas.assessedvalue
+        
         if (avdifference <= 0){
             return
         }
@@ -1238,9 +1296,15 @@ class RPTLedgerService
 
         def restrictions = em_faas_restriction.select('objid').find([ledger_objid: ledger.objid, state: 'ACTIVE']).first()
         if (restrictions) {
-            ledger._messagelist = 'Ledger has active restrictions.'
+            ledger._messagelist << 'Ledger has active restrictions.'
         }
-        
+
+        if ('APPROVED'.equalsIgnoreCase(ledger.state)) {
+            def faas = em_faas.select('state').find([objid: ledger.faasid]).first()
+            if (faas && 'CANCELLED'.equalsIgnoreCase(faas.state)) {
+                ledger._messagelist << 'Associated FAAS has already been cancelled.'
+            }
+        }
         return ledger
     }
 
@@ -1287,6 +1351,11 @@ class RPTLedgerService
     @ProxyMethod
     public void clearLedgerEntries(ledger) {
         em_rptledger_item.find([parentid: ledger.objid]).delete()
+    }
+
+    @ProxyMethod
+    public def getClassifications() {
+        return em_classification.where('1=1').orderBy('orderno').list()
     }
 
     void validateSubledger(subledger) {

@@ -344,7 +344,7 @@ class MachRPUService
 
     void saveMachines(machines){
         machines.each{ m ->
-            if (!m.params) m.params = [:];
+            if (!m.params) m.params = [];
             em_machdetail.save(m);
         }
     }

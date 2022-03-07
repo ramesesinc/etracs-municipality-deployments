@@ -1,0 +1,59 @@
+import com.rameses.annotations.*;
+import java.io.File;
+import com.rameses.fileupload.*;
+import java.util.concurrent.*;
+
+/* 
+    Push all FORSYNC error to sender and notify them with the errors.
+    Senders are the one who needs to reconcile and fix the error
+*/
+class RPTSyncErrorTask {
+
+	@Service(value='RemoteCoordinatorService', connection='coordinator-script-service')
+	def coordinator 
+
+    @DataContext('rpt_syncdata_error')
+    def em_sync_error
+    
+    @Schedule(interval=5)
+    public void syncError( evt ) {
+        def remoteorgs = em_sync_error.select('remote.orgcode').where("state = 'FORSYNC'").list().unique()
+        if (!remoteorgs) {
+            waitTimeout(30);
+            return;
+        }
+        
+        remoteorgs.each{remoteorg -> 
+            def remote = remoteorg.remote
+            def errors = em_sync_error.where("remote_orgcode = :orgcode AND state = 'FORSYNC'", remote)
+                            .orderBy('refid,idx')
+                            .list()
+                            .collect{ [objid: it.objid, error: it.error]}
+            def remoteConfig = [
+                orgcode: remote.orgcode,
+                module: "etracs25",
+                connection: "rpt",
+            ]
+            def data = [:];
+            data.reftype = 'syncitem-error';
+            data.action = 'post-errors';
+            data.errors = errors;
+            def result = coordinator.onMessage(data, remoteConfig);
+            data.errors.each{
+                em_sync_error.find([objid: it.objid]).update([state: 'OPEN'])
+            }
+            log('INFO', 'Successfully posting errors to ' + remote.orgcode)
+        }
+
+    }
+
+    void waitTimeout(secs) {
+        def queue = new LinkedBlockingQueue();
+        queue.poll(secs, TimeUnit.SECONDS);
+    }
+
+    void log(type, msg) {
+        println 'SyncErrorTask [' + type + '] ' + msg;
+    }
+
+}

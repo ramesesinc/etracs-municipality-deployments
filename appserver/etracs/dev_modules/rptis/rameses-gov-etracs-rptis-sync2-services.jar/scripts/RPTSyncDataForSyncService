@@ -1,0 +1,28 @@
+import com.rameses.annotations.*
+import com.rameses.common.*
+import com.rameses.services.extended.*
+import java.io.File
+import com.rameses.fileupload.*
+
+
+class RPTSyncDataForSyncService
+{   
+
+	@DataContext('rpt_syncdata_item')
+	def em_syncdata_item
+
+	def STATE_FORRESOLVE = 'FORRESOLVE'
+
+	@ProxyMethod
+	public def getItems(param) {
+		return em_syncdata_item.find([parentid: param.objid]).orderBy('idx').list()
+	}
+
+	@ProxyMethod
+	public void resolveItems(items) {
+		items.each{
+			em_syncdata_item.find([objid: it.objid]).update([error: null])
+		}
+	}
+
+}

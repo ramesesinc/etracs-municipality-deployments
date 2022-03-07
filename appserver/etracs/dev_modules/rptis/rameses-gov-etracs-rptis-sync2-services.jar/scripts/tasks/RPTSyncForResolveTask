@@ -1,0 +1,77 @@
+import com.rameses.annotations.*;
+import java.io.File;
+import com.rameses.fileupload.*;
+import java.util.concurrent.*;
+
+/* 
+    Push all items to resolve to remote. 
+    For resolve items are ( state: ERROR, error: null)
+*/
+class RPTSyncForResolveTask {
+
+	@Service(value='RemoteCoordinatorService', connection='coordinator-script-service')
+	def coordinator 
+
+    @DataContext('rpt_syncdata')
+    def em_syncdata
+
+    @DataContext('rpt_syncdata_item')
+    def em_syncdata_item
+    
+    @Schedule(interval=10)
+    public void sendForResolveToRemote( evt ) {
+        def remoteorgs = em_syncdata.getDistinctOrgs();
+        if (!remoteorgs) {
+            waitTimeout(30);
+            return;
+        }
+
+        try {
+            remoteorgs.each{remoteorg ->
+                def remote = remoteorg.remote
+                def items = em_syncdata_item
+                                .select('objid')
+                                .find([state: 'ERROR'])
+                                .where('error is null AND parent.remote_orgcode = :orgcode', remote)
+                                .list()
+
+                if (items) {
+                    sendForResolveItems(remote, items)
+                    
+                    items.each{
+                        em_syncdata_item.find([objid: it.objid]).update([state: 'FORRESOLVE'])
+                    }
+                    log('INFO', 'Items to resolve submitted to ' + remote.orgcode);
+                }
+                
+            }
+        } catch ( e) {
+            log('ERROR', e.message);
+            e.printStackTrace()
+        }
+    }
+
+    void sendForResolveItems(remote, items) {
+        def remoteConfig = [
+            orgcode: remote.orgcode,
+            module: "etracs25",
+            connection: "rpt",
+        ]
+
+        def data = [:];
+        data.reftype = 'syncitem';
+        data.action = 'post-forresolve';
+        data.items = items;
+        coordinator.onMessage(data, remoteConfig);
+    }
+
+    void waitTimeout(secs) {
+        def queue = new LinkedBlockingQueue();
+        queue.poll(secs, TimeUnit.SECONDS);
+    }
+
+    void log(type, msg) {
+        println 'RPTSyncForResolveTask [' + type + '] ' + msg;
+    }
+
+}

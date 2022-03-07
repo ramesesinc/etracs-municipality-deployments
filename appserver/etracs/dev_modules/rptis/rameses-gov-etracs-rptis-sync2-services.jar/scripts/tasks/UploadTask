@@ -12,6 +12,9 @@ class UploadTask {
     @Service('RPTUtil')
     def util;
 
+    @DataContext('rpt_syncdata_item')
+	def em_sync_item
+
     @Schedule(interval=10)
     public void upload( evt ) {
         if (!util.toBoolean(var.fileserver_upload_task_active, true)) {
@@ -40,6 +43,8 @@ class UploadTask {
                     reader.close();
                     fu.upload(key, fileEntry, syncitem.parent.remote.orgcode);
                     fileEntry.delete();
+                    em_sync_item.find([objid: syncitem.objid]).update([state: 'UPLOADED'])
+                    println 'UploadTask [INFO] Item ' + syncitem.refno + ' uploaded'
                 }
             }
         }

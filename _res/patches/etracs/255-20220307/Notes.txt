@@ -1,0 +1,13 @@
+*==========================================
+*
+*  FileServer setting updates
+*
+*==========================================
+
+1. Add the to env.conf
+
+    fileserver_dir=${osiris.base.dir}/fileserver
+
+2. Modify fileupload connection set:
+
+   downloadDir=${fileserver_dir}/downloads

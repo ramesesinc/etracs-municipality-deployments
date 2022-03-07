@@ -57,8 +57,11 @@ class FAASService
 	@DataContext('faas_txntype')
 	def em_txntype 
 
-    @DataContext('txnlog')
-    def em_txnlog 
+	@DataContext('txnlog')
+	def em_txnlog 
+
+	@DataContext('rpt_examination')
+	def em_examination
 
 	@Service('Var')
 	def var 
@@ -210,10 +213,14 @@ class FAASService
 	@ProxyMethod
 	public void savePreviousFaases( faas ) {
 		//handle old data 
-		if (!faas.previousfaases) 
+		if (!faas.previousfaases) {
 			faas.previousfaases = []
+		}
 			
 		faas.previousfaases.each{
+			if (it.prevfaasid == it.faasid) {
+				it.prevfaasid = null;
+			}
 			em_faas_previous.save(it)
 		}			
 		faas._previousfaases?.each{
@@ -279,6 +286,20 @@ class FAASService
 	@ProxyMethod
 	public def disapproveOnlineFaas(faas) {
 		self.deleteFaas(faas)
+	}
+
+	@ProxyMethod
+	public def cancelTransaction(faas) {
+		//move any findings to current faas
+		faas.previousfaases.each{ pf ->
+			em_examination.debug =true
+			
+			em_examination
+					.where('parent_objid = :faasid', [faasid: pf.faasid])
+					.update([parent_objid: pf.prevfaasid])
+		}
+
+		return self.deleteFaas(faas)
 	}
 
 	@ProxyMethod
@@ -548,10 +569,8 @@ class FAASService
     @ProxyMethod
     public void saveSignatory( signatory ) {
     	if (signatory) {
-    		if (!signatory.assessor) {
-	    		def param = paramSvc.getStandardParameter()
-	    		signatory.assessor = [name: param?.ASSESSORNAME, title: param?.ASSESSORTITLE]
-    		}
+				def param = paramSvc.getStandardParameter()
+				signatory.assessor = [name: param?.ASSESSORNAME, title: param?.ASSESSORTITLE]
     		em_faas_signatory.save(signatory)
     	}
     }

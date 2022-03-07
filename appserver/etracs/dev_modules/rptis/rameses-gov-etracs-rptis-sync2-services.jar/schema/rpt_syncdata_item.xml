@@ -8,6 +8,7 @@
 		<field name="refno" caption="Ref No." />
 		<field name="action" required="true" caption="Action" />
 		<field name="idx" required="true" type="integer" />
+		<field name="error" caption="Error" />
 		<complex name="info" serializer="default" />
 		<complex name="parent" ref="rpt_syncdata" jointype="many-to-one" >
 			<key field="parentid" target="objid" />
