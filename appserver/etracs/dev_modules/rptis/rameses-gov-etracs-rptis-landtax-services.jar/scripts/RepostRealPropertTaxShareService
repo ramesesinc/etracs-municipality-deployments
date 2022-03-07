@@ -1,0 +1,65 @@
+import com.rameses.annotations.*
+import com.rameses.services.extended.*
+
+class RepostRealPropertTaxShareService
+{
+    @DataContext('cashreceipt_rpt_share_forposting_repost')
+    def em_repost;
+
+    @ActiveDB('landtax_repost_shares')
+    def em;
+
+    @Service('RPTUtil')
+    def util;
+
+    @Service('RPTReceiptPostShareService')
+    def svc;
+    
+    @Async
+    @ProxyMethod
+    public def buildReceiptsToRepost(param) {
+        def startparam = [:];
+        startparam.year = param.startyear;
+        startparam.month = param.startmonth;
+        util.buildStartEndDateFilter(startparam);
+        
+        def endparam = [:];
+        endparam.year = param.endyear;
+        endparam.month = param.endmonth;
+        util.buildStartEndDateFilter(endparam);
+        
+        param.startdate = startparam.startdate;
+        param.enddate = endparam.enddate;
+
+        println 'Clearing entries to repost';
+        em.clearForRepostEntries(param);
+        println 'Inserting receipts to repost';
+        em.insertReceiptToRepost(param);
+        println 'Deleting realty tax shares to repost';
+        em.deleteRptSharesToRepost(param);
+        println 'Deleting cashreceipt shares to repost';
+        em.deleteCashReceiptSharesToRepost(param);
+        def repost = em.findRemainingCount(param);
+        println 'repost: ' + repost;
+        return (int) repost.remaining;
+    }
+
+    @ProxyMethod
+    public def getReceiptsToRepost() {
+        return em_repost.where('1=1').orderBy('receiptdate').list();
+    }
+
+    @ProxyMethod
+    public void postShare(item) {
+        svc.postShare(item);
+    }
+
+
+    @ProxyMethod
+    public def getRemainingCount(param) {
+        def progress = em.findRemainingCount(param);
+        return (int) progress.remaining;
+    }
+}
+
+
