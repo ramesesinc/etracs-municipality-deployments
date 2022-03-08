@@ -23,12 +23,11 @@ class RPTSyncCompletedTask {
     @DataContext('rpt_syncdata_item_completed')
     def em_sync_item_completed;
     
-    @Schedule(interval=5)
+    @Schedule(interval=20)
     public void syncCompleted( evt ) {
         def syncdatalist = em_syncdata.where("state = 'FORSYNC'").list()
         if (!syncdatalist) {
-            //TODO: 60sec
-            waitTimeout(10);
+            waitTimeout(40);
             return;
         }
         

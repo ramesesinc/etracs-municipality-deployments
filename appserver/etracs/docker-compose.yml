@@ -58,3 +58,4 @@ services:
       ## mounted lib
       - ../../_res/lib/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
       - ../../_res/lib/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
+      - ../../_res/lib/rameses-fileupload.jar:/apps/server/lib/rameses-fileupload.jar

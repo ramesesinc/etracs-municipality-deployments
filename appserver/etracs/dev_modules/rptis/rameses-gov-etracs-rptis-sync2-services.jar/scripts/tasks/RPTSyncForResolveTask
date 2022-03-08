@@ -18,17 +18,17 @@ class RPTSyncForResolveTask {
     @DataContext('rpt_syncdata_item')
     def em_syncdata_item
     
-    @Schedule(interval=10)
+    @Schedule(interval=20)
     public void sendForResolveToRemote( evt ) {
         def remoteorgs = em_syncdata.getDistinctOrgs();
         if (!remoteorgs) {
-            waitTimeout(30);
+            waitTimeout(40);
             return;
         }
 
-        try {
-            remoteorgs.each{remoteorg ->
-                def remote = remoteorg.remote
+        remoteorgs.each{remoteorg ->
+            def remote = remoteorg.remote
+            try {
                 def items = em_syncdata_item
                                 .select('objid')
                                 .find([state: 'ERROR'])
@@ -43,11 +43,10 @@ class RPTSyncForResolveTask {
                     }
                     log('INFO', 'Items to resolve submitted to ' + remote.orgcode);
                 }
-                
+            } catch ( e) {
+                log('ERROR', e.message);
+                e.printStackTrace()
             }
-        } catch ( e) {
-            log('ERROR', e.message);
-            e.printStackTrace()
         }
     }
 

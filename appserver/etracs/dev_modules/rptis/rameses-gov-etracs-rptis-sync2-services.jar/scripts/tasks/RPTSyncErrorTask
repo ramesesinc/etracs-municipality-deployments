@@ -15,34 +15,38 @@ class RPTSyncErrorTask {
     @DataContext('rpt_syncdata_error')
     def em_sync_error
     
-    @Schedule(interval=5)
+    @Schedule(interval=20)
     public void syncError( evt ) {
         def remoteorgs = em_sync_error.select('remote.orgcode').where("state = 'FORSYNC'").list().unique()
         if (!remoteorgs) {
-            waitTimeout(30);
+            waitTimeout(40);
             return;
         }
         
         remoteorgs.each{remoteorg -> 
             def remote = remoteorg.remote
-            def errors = em_sync_error.where("remote_orgcode = :orgcode AND state = 'FORSYNC'", remote)
-                            .orderBy('refid,idx')
-                            .list()
-                            .collect{ [objid: it.objid, error: it.error]}
-            def remoteConfig = [
-                orgcode: remote.orgcode,
-                module: "etracs25",
-                connection: "rpt",
-            ]
-            def data = [:];
-            data.reftype = 'syncitem-error';
-            data.action = 'post-errors';
-            data.errors = errors;
-            def result = coordinator.onMessage(data, remoteConfig);
-            data.errors.each{
-                em_sync_error.find([objid: it.objid]).update([state: 'OPEN'])
+            try {
+                def errors = em_sync_error.where("remote_orgcode = :orgcode AND state = 'FORSYNC'", remote)
+                                .orderBy('refid,idx')
+                                .list()
+                                .collect{ [objid: it.objid, error: it.error]}
+                def remoteConfig = [
+                    orgcode: remote.orgcode,
+                    module: "etracs25",
+                    connection: "rpt",
+                ]
+                def data = [:];
+                data.reftype = 'syncitem-error';
+                data.action = 'post-errors';
+                data.errors = errors;
+                def result = coordinator.onMessage(data, remoteConfig);
+                data.errors.each{
+                    em_sync_error.find([objid: it.objid]).update([state: 'OPEN'])
+                }
+                log('INFO', 'Successfully posting errors to ' + remote.orgcode)
+            } catch(e) {
+                log('ERROR', remote.orgcode + ': ' + e.message)
             }
-            log('INFO', 'Successfully posting errors to ' + remote.orgcode)
         }
 
     }

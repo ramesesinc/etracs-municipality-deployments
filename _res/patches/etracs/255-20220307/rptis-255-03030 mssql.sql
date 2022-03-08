@@ -21,6 +21,7 @@ go
 
 CREATE TABLE rpt_syncdata_fordownload (
   objid varchar(255) NOT NULL,
+  state varchar(50) NOT NULL,
   etag varchar(64) NOT NULL,
   error int NOT NULL,
   PRIMARY KEY (objid)

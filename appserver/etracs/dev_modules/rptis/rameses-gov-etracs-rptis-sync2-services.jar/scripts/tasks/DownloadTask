@@ -34,30 +34,29 @@ class DownloadTask {
 
     def DOWNLOAD_FLAG = "fileserver_download_task_active"
 
-    @Schedule(interval=30)
-    public void downloadFiles( evt ) {
+    /* Download AWS Keys and save to fordownload */
+    @Schedule(interval=60)
+    public void downloadAwsKeys( evt ) {
         if (!downloaderActive()) return
+        
+        def fordownloadfile = em_sync_fordownload.where("state = 'FORDOWNLOAD'").first()
+        if (fordownloadfile) {
+            return;
+        }
 
         try {
             fu.getList().each {
                 try {
                     def fordownload = [:];
                     fordownload.objid = it.Key;
+                    fordownload.state = 'FORDOWNLOAD';
                     fordownload.etag = it.ETag;
                     fordownload.error = false;
-
-                    //download file and save to local storage 
-                    fu.download(fordownload.objid);
-
-                    //delete cloud data
-                    fu.delete(fordownload.objid);
-
-                    // //post ready for syncdata
-                    createForDownload(fordownload);
+                    em_sync_fordownload.save(fordownload);
                 } catch(err) {
+                    //ignore
                     err.printStackTrace();
-                    //ignore possible duplicate error
-                }
+                } 
             }
         } catch ( e ) {
             println "DownlaodTask [ERROR] " + e.message;
@@ -65,8 +64,40 @@ class DownloadTask {
     }
 
     @Schedule(interval=1)
+    public void downloadFiles( evt ) {
+        if (!downloaderActive()) return
+
+        def fordownloadfiles = em_sync_fordownload.where("state = 'FORDOWNLOAD'").orderBy('objid').list(0, 10)
+        if (!fordownloadfiles) {
+            waitTimeout(20);
+            return;
+        }
+
+        fordownloadfiles.each {
+            try {
+                //download file and save to local storage 
+                fu.download(it.objid);
+
+                //delete cloud data
+                fu.delete(it.objid);
+
+                em_sync_fordownload.find([objid: it.objid]).update([state: 'DOWNLOADED']);
+            } catch(err) {
+                try {
+                    //try reading the file if existing, update state if downloaded
+                    def reader = fu.readObject(it.objid);
+                    em_sync_fordownload.find([objid: it.objid]).update([state: 'DOWNLOADED']);
+                } catch(ignore) {
+                    err.printStackTrace()
+                }
+            } 
+        }
+    }
+
+    
+    @Schedule(interval=1)
     public void syncDownloadedFile( evt ) {
-        def downloadfile = em_sync_fordownload.where('error = 0').orderBy('objid').first()
+        def downloadfile = em_sync_fordownload.where("state = 'DOWNLOADED' and error = 0").orderBy('objid').first()
         if (!downloadfile) {
             waitTimeout(10);
             return;
@@ -92,6 +123,9 @@ class DownloadTask {
             em_sync_fordownload.find([objid: downloadfile.objid]).delete();
             em_sync_error.find([objid: syncdata.objid]).delete();
             reader.deleteFile();
+        } catch(java.io.FileNotFoundException iox) {
+            log('ERROR', 'Downloaded file not exists: ' + downloadfile.objid);
+            em_sync_fordownload.find([objid: downloadfile.objid]).delete();
         } catch (e) {
             log('INFO', e.message)
             e.printStackTrace();
@@ -129,15 +163,6 @@ class DownloadTask {
     void waitTimeout(secs) {
         def queue = new LinkedBlockingQueue();
         queue.poll(secs, TimeUnit.SECONDS);
-    }
-
-    @Async
-    public void createForDownload(fordownload) {
-        try {
-            em_sync_fordownload.create(fordownload);
-        } catch( ignore) {
-            // ignore duplicate
-        }
     }
 
     def getRemoteOrg(syncdata) {
