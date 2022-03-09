@@ -21,7 +21,7 @@ WHERE bal.previd = $P{previd}
 
 
 [lookupBldgTypes]
-SELECT bt.*, l.barangayid
+SELECT bt.*, l.barangayid, rs.ry
 FROM bldgrysetting rs
 	INNER JOIN rysetting_lgu l ON rs.objid = l.rysettingid 
 	INNER JOIN bldgtype bt ON rs.objid = bt.bldgrysettingid

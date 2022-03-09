@@ -63,6 +63,7 @@ group by
     rlf.assessedvalue,
     rp.postedby,
     rp.paidby_name
+order by rp.receiptdate
     
 
 [findRptar]    

@@ -83,8 +83,8 @@ SELECT
     SUM(CASE WHEN ri.revtype = 'sef' THEN ri.amount ELSE 0 END) AS sef,
     SUM(CASE WHEN ri.revtype = 'sef' THEN ri.discount ELSE 0 END) AS sefdisc,
     SUM(CASE WHEN ri.revtype = 'sef' THEN ri.interest ELSE 0 END) AS sefint,
-    MIN(ri.qtr) as minqtr,
-    MAX(ri.qtr) as maxqtr,
+    MIN(case when ri.qtr is null then 1 else ri.qtr end) as minqtr,
+    MAX(case when ri.qtr is null then 4 else ri.qtr end) as maxqtr,
     ri.year
 FROM rptcertificationitem rci 
     INNER JOIN rptledger rl ON rci.refid = rl.objid 

@@ -11,6 +11,7 @@ public class AssessedValue
     Integer fromqtr
     Integer toqtr
     Double av
+    Double mv
     Double basicav
     Double sefav
     Boolean taxdifference 
@@ -28,6 +29,7 @@ public class AssessedValue
         this.fromqtr = item.fromqtr
         this.toqtr = item.toqtr
         this.av = item.av
+        this.mv = item.mv
         this.basicav = item.basicav
         this.sefav = item.sefav
         this.taxdifference = (item.taxdifference ? item.taxdifference : false)

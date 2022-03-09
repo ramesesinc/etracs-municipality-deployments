@@ -1,0 +1,95 @@
+import com.rameses.annotations.*;
+import java.io.File;
+import com.rameses.fileupload.*;
+import java.util.concurrent.*;
+
+/* 
+    Push all completed items to sender
+*/
+class RPTSyncCompletedTask {
+
+	@Service(value='RemoteCoordinatorService', connection='coordinator-script-service')
+	def coordinator 
+
+    @DataContext('rpt_syncdata')
+    def em_syncdata;
+
+    @DataContext('rpt_syncdata_completed')
+    def em_syncdata_completed;
+
+    @DataContext('rpt_syncdata_item')
+    def em_sync_item;
+
+    @DataContext('rpt_syncdata_item_completed')
+    def em_sync_item_completed;
+    
+    @Schedule(interval=20)
+    public void syncCompleted( evt ) {
+        def syncdatalist = em_syncdata.where("state = 'FORSYNC'").list()
+        if (!syncdatalist) {
+            waitTimeout(40);
+            return;
+        }
+        
+        syncdatalist.each{syncdata -> 
+            try {
+                def syncheditems = em_sync_item.where("parentid = :objid AND state = 'FORSYNC'", syncdata)
+                                .orderBy('refid,idx')
+                                .list();
+
+                postCompletedItemsToRemote(syncdata, syncheditems);
+                moveCompletedSyncData(syncdata);
+                
+            } catch(e) {
+                log('ERROR', 'RPTSyncCompletedTask', syncdata.remote.orgcode + ' => ' + e.message);
+            }
+        }
+
+    }
+
+    void postCompletedItemsToRemote(syncdata, syncheditems) {
+        def remoteConfig = getRemoteConfig(syncdata)
+
+        def data = [:];
+        data.reftype = 'syncitem';
+        data.action = 'post-synched-items';
+        data.syncheditems = syncheditems.collect{[objid: it.objid]};
+
+        def result = coordinator.onMessage(data, remoteConfig);
+
+        syncheditems.each{
+            it.state = 'SYNCHED'
+            em_sync_item_completed.create(it);
+            em_sync_item.find([objid: it.objid]).delete();
+        }
+        log('INFO', 'RPTSyncCompletedTask', 'Successfully committing to ' + syncdata.remote.orgcode);
+    }
+
+    void moveCompletedSyncData(syncdata){
+        def item = em_sync_item.select('objid').find([parentid: syncdata.objid]).first()
+        if (!item) {
+            //all items are synched, move to completed
+            syncdata.state = 'SYNCHED'
+            em_syncdata_completed.save(syncdata);
+            em_syncdata.find([objid: syncdata.objid]).delete();
+        }
+    }
+
+    void waitTimeout(secs) {
+        def queue = new LinkedBlockingQueue();
+        queue.poll(secs, TimeUnit.SECONDS);
+    }
+
+    void log(type, clz, msg) {
+        println clz + ' [' + type + '] ' + msg;
+    }
+
+    def getRemoteConfig(syncdata) {
+        return [
+            orgcode: syncdata.remote.orgcode,
+            module: "etracs25",
+            connection: "rpt",
+        ]
+    }
+
+}

@@ -1,0 +1,44 @@
+import com.rameses.annotations.*;
+
+public class RPTSyncDataMessageInterceptor {
+
+	@DataContext('rpt_syncdata_fordownload')
+	def em_sync_fordownload
+
+	@DataContext('rpt_syncdata_error')
+	def em_sync_error
+
+	@DataContext('rpt_syncdata_item')
+	def em_sync_item
+
+	@After(pattern="RemoteMessageService.onMessage", eval="#{args[0].reftype == 'syncitem-error' && args[0].action == 'post-errors' }")
+	public void postErrors(evt) {
+		def data = evt.args[0]
+		data.errors.each{item ->
+			em_sync_item.find([objid: item.objid])
+					.update([
+						state: 'ERROR',
+						error: item.error,
+					])
+		}
+	}
+	
+	@After(pattern="RemoteMessageService.onMessage", eval="#{args[0].reftype == 'syncitem' && args[0].action == 'post-forresolve' }")
+	public void postForResolveItems(evt) {
+		def data = evt.args[0]
+		
+		data.items.each{
+			def error = em_sync_error.find([objid: it.objid]).first();
+			if (error) {
+				em_sync_error.find([objid: error.objid]).delete();
+				em_sync_fordownload.find([objid: error.filekey]).update([error: 0]);
+				log('INFO', 'For resolve ' + error.reftype + ': ' + error.refno);
+			}
+		}
+	}
+
+	void log(type, msg) {
+		println 'RPTSyncForResolveTask [' + type + '] ' + msg;
+	}
+
+}
