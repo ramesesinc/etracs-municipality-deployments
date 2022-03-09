@@ -672,6 +672,6 @@ CREATE TABLE `rpt_syncdata_item_completed` (
   KEY `ix_parentid` (`parentid`),
   KEY `ix_state` (`state`),
   KEY `ix_refid` (`refid`),
-  KEY `ix_refno` (`refno`),
+  KEY `ix_refno` (`refno`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
