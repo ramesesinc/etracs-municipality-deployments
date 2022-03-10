@@ -1,12 +1,11 @@
 version: "3"
 
 services:
-
   gdx-proxy-server:
-    image: ramesesinc/gdx-proxy-server:v002
+    image: ramesesinc/gdx-proxy-server:v004
     container_name: gdx-proxy-server
     restart: always
-    logging: 
+    logging:
       driver: "json-file"
       options:
         max-file: "5"
@@ -17,12 +16,11 @@ services:
       - "8500:80"
       - "7000:80"
 
-
   gdx-client:
-    image: ramesesinc/gdx-client:1.04.01
+    image: ramesesinc/gdx-client:1.04.03
     container_name: gdx-client
     restart: always
-    logging: 
+    logging:
       driver: "json-file"
       options:
         max-file: "5"
