@@ -20,15 +20,17 @@ public class RPTSyncCompletedMessageInterceptor {
 		def syncdataids = [];
 
 		data.syncheditems.each{item ->
-			def syncitem = em_sync_item.read([objid: item.objid])
-			syncitem.state = 'SYNCHED';
-			syncitem.error = null;
+			def syncitem = em_sync_item.read([objid: item.objid]);
+			if (syncitem) {
+				syncitem.state = 'SYNCHED';
+				syncitem.error = null;
 
-			em_sync_item_completed.create(syncitem);
-			em_sync_item.find([objid: syncitem.objid]).delete();
+				em_sync_item_completed.create(syncitem);
+				em_sync_item.find([objid: syncitem.objid]).delete();
 
-			if (!syncdataids.contains(syncitem.parentid)) {
-				syncdataids << syncitem.parentid;
+				if (!syncdataids.contains(syncitem.parentid)) {
+					syncdataids << syncitem.parentid;
+				}
 			}
 		}
 
