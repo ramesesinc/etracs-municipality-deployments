@@ -1,0 +1,71 @@
+import com.rameses.annotations.*;
+import java.io.File;
+import com.rameses.fileupload.*;
+import java.util.concurrent.*;
+
+/* 
+    Push all UPLOADED items to remote as FORDOWNLOAD
+*/
+class RPTSyncForwardUploadedToRemoteTask {
+
+	@Service(value='RemoteCoordinatorService', connection='coordinator-script-service')
+	def coordinator 
+
+    @DataContext('rpt_syncdata')
+    def em_syncdata
+
+    @DataContext('rpt_syncdata_item')
+    def em_syncdata_item
+    
+    @Schedule(interval=20)
+    public void forwardUploadedToRemote( evt ) {
+        def remoteorgs = em_syncdata.getDistinctOrgs()
+        if (!remoteorgs) {
+            waitTimeout(40);
+            return;
+        }
+        
+        remoteorgs.each{remoteorg -> 
+            def remote = remoteorg.remote
+            def uploadeditems = [];
+            try {
+                def syncdatalist = em_syncdata.select('objid').find([remote_orgid: remote.orgid]).list()
+                syncdatalist.each{syncdata -> 
+                    uploadeditems += em_syncdata_item.select('objid,filekey,etag')
+                                    .find([parentid: syncdata.objid, state: 'UPLOADED'])
+                                    .list()
+
+                }
+                if (uploadeditems) {
+                    def remoteConfig = [
+                        orgcode: remote.orgcode,
+                        module: "etracs25",
+                        connection: "rpt",
+                    ]
+                    def data = [:];
+                    data.reftype = 'syncitem';
+                    data.action = 'post-uploaded-items';
+                    data.orgid = remote.orgid;
+                    data.items = uploadeditems;
+                    coordinator.onMessage(data, remoteConfig);
+                    data.items.each{
+                        em_syncdata_item.find([objid: it.objid]).update([state: 'FORWARDED'])
+                    }
+                    log('INFO', 'Submitted uploaded items to ' + remote.orgcode)
+                }
+            } catch(e) {
+                log('ERROR', remote.orgcode + ': ' + e.message)
+            }
+        }
+    }
+
+    void waitTimeout(secs) {
+        def queue = new LinkedBlockingQueue();
+        queue.poll(secs, TimeUnit.SECONDS);
+    }
+
+    void log(type, msg) {
+        println 'ForwardUploadedToRemote [' + type + '] ' + msg;
+    }
+
+}

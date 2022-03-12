@@ -1,0 +1,2 @@
+RPTIS: 
+    - SYNC2: post uploaded to remote

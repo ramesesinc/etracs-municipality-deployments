@@ -31,6 +31,7 @@ public class RPTSyncCompletedMessageInterceptor {
 				if (!syncdataids.contains(syncitem.parentid)) {
 					syncdataids << syncitem.parentid;
 				}
+				println 'CompletedMessage [INFO] Synched ' + syncitem.reftype + ' ' + syncitem.refno + ' ' + syncitem.action;
 			}
 		}
 

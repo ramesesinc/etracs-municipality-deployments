@@ -70,7 +70,7 @@ class RPTSyncForResolveTask {
     }
 
     void log(type, msg) {
-        println 'RPTSyncForResolveTask [' + type + '] ' + msg;
+        println 'RPTSyncDataForResolve [' + type + '] ' + msg;
     }
 
 }
