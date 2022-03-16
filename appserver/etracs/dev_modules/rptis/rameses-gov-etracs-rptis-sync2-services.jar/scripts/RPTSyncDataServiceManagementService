@@ -10,9 +10,6 @@ class RPTSyncDataServiceManagementService
 	@XConnection('fileupload')
     def fu
 
-	@DataContext('rpt_syncdata_error')
-	def em_sync_error
-
 	@DataContext('rpt_syncdata_fordownload')
 	def em_sync_fordownload
 

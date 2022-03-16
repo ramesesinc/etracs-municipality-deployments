@@ -34,38 +34,12 @@ class DownloadTask {
 
     def DOWNLOAD_FLAG = "fileserver_download_task_active"
 
-    /* Download AWS Keys and save to fordownload */
-    @Schedule(interval=60)
-    public void downloadAwsKeys( evt ) {
-        if (!downloaderActive()) return
-        
-        def fordownloadfile = em_sync_fordownload.where("state = 'FORDOWNLOAD'").first()
-        if (fordownloadfile) {
-            return;
-        }
-
-        try {
-            fu.getList().each {
-                try {
-                    def fordownload = [:];
-                    fordownload.objid = it.Key;
-                    fordownload.state = 'FORDOWNLOAD';
-                    fordownload.etag = it.ETag;
-                    fordownload.error = false;
-                    em_sync_fordownload.save(fordownload);
-                } catch(err) {
-                    //ignore
-                    err.printStackTrace();
-                } 
-            }
-        } catch ( e ) {
-            println "DownlaodTask [ERROR] " + e.message;
-        }
-    }
-
     @Schedule(interval=1)
     public void downloadFiles( evt ) {
-        if (!downloaderActive()) return
+        if (!downloaderActive()) {
+            waitTimeout(20);
+            return
+        }
 
         def fordownloadfiles = em_sync_fordownload.where("state = 'FORDOWNLOAD'").orderBy('objid').list(0, 10)
         if (!fordownloadfiles) {
@@ -109,15 +83,17 @@ class DownloadTask {
             reader = fu.readObject(downloadfile.objid);
             syncdata = reader.read();
             syncdata.data = reader.read(); 
+            def orgid = syncdata.parent.remote.orgid;
+            syncdata.parent.remote = getRemoteOrg(syncdata);
+            syncdata.parent.orgid = orgid;
+            syncdata.remote = syncdata.parent.remote;
+
             svc.receive(syncdata);
 
             //save syncdata and item
             syncdata.state = 'FORSYNC';
             syncdata.dtcreated = dtSvc.serverDate;
             syncdata.parent.state = syncdata.state;
-            def orgid = syncdata.parent.remote.orgid;
-            syncdata.parent.remote = getRemoteOrg(syncdata);
-            syncdata.parent.orgid = orgid;
             em_syncdata.save(syncdata.parent);
             em_sync_item.save(syncdata);
             em_sync_fordownload.find([objid: downloadfile.objid]).delete();
@@ -134,11 +110,6 @@ class DownloadTask {
                 syncdata.filekey = downloadfile.objid;
                 syncdata.error = ExceptionUtils.getStackTrace(e);
                 syncdata.info = syncdata.info ? syncdata.info : [:]
-                syncdata.remote = [
-                    orgid: syncdata.parent.orgid,
-                    orgcode: syncdata.parent.orgid,
-                    orgclass: "PROVINCE".equalsIgnoreCase(syncdata.parent.remote?.orgclass) ? "MUNICIPALITY" : "PROVINCE",
-                ]
                 em_sync_error.save(syncdata);
                 em_sync_fordownload.find([objid: downloadfile.objid]).update([error: 1]);
             }

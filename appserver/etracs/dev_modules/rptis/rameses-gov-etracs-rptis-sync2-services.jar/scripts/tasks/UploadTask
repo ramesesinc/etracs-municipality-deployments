@@ -41,10 +41,14 @@ class UploadTask {
                     def reader = new ObjectReader(fileEntry);
                     def syncitem = reader.read();
                     reader.close();
-                    fu.upload(key, fileEntry, syncitem.parent.remote.orgcode);
+                    def uploadinfo = fu.upload(key, fileEntry, syncitem.parent.remote.orgcode);
                     fileEntry.delete();
-                    em_sync_item.find([objid: syncitem.objid]).update([state: 'UPLOADED'])
-                    println 'UploadTask [INFO] Item ' + syncitem.refno + ' uploaded'
+                    em_sync_item.find([objid: syncitem.objid])
+                        .update([
+                            state: 'UPLOADED', 
+                            filekey: uploadinfo.key,
+                            etag: uploadinfo.etag,
+                        ])
                 }
             }
         }

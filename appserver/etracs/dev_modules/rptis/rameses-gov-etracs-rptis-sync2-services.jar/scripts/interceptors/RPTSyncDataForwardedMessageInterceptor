@@ -1,0 +1,21 @@
+import com.rameses.annotations.*;
+
+public class RPTSyncDataForwardedMessageInterceptor {
+	@DataContext('rpt_syncdata_fordownload')
+	def em_syncdata_fordownload
+
+	@After(pattern="RemoteMessageService.onMessage", eval="#{args[0].reftype == 'syncitem' && args[0].action == 'post-uploaded-items' }")
+	public void postUploadedItemsToForDownload(evt) {
+		def data = evt.args[0];
+
+		data.items.each{
+            def fordownload = [:];
+            fordownload.objid = it.filekey;
+            fordownload.state = 'FORDOWNLOAD';
+            fordownload.etag = it.etag;
+            fordownload.error = false;
+            em_syncdata_fordownload.save(fordownload);
+		}
+        println 'ForwardedMessageInterceptor [INFO] Posted uploaded items from ' + data.orgid;
+	}
+}
