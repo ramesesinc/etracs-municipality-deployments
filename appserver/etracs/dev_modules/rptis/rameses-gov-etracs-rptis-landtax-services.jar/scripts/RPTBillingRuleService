@@ -216,7 +216,7 @@ public class RPTBillingRuleService
 
 
 	boolean checkFirstQtrPaidOntime(rptledger, bill){
-		if (rptledger.lastyearpaid == bill.cy - 1 && rptledger.lastqtrpaid == 4 )
+		if (rptledger.lastyearpaid == bill.cy - 1 && rptledger.lastqtrpaid == 4 && bill._pdate.qtr == 1 )
 			return true;
 
 		def curryearpmt = em.findLatestPayment([objid:rptledger.objid, cy:bill.cy])
