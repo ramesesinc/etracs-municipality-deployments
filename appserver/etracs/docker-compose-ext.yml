@@ -4,4 +4,6 @@ services:
 
    etracs-server:
       volumes:
-         - ./dev_modules/bpls:/services/modules/bpls
+         ## this is only a seed mapping, please do not remove
+         ## 
+         - ../../_custom/.emptydir:/.emptydir
