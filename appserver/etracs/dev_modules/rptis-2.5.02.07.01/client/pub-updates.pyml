@@ -1,6 +1,7 @@
 app:
 
    env:
+      "rpt.build" : "2.5.02.07.01"
       "rpt.app.host" : "${pub_app_server_ip}:8070"
       "rpt.app.context" : "etracs25"
 
