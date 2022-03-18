@@ -1,11 +1,11 @@
 [Docker Server]
 IP  : 192.168.101.133
-User: lguubay
+User: lguubayclear
 Pass: p@ssw0rd475
 
 
 [DB Access]
-IP   : 192.168.254.197
+IP   : 192.168.101.197
 User : root
 Pass : 12p@ssw0rd34
 
