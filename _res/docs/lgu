@@ -1,7 +1,7 @@
 [Docker Server]
-IP  : 192.168.254.13
-User: 
-Pass: 
+IP  : 192.168.101.133
+User: lguubay
+Pass: p@ssw0rd475
 
 
 [DB Access]
@@ -11,20 +11,20 @@ Pass : 12p@ssw0rd34
 
 
 [Webmin]
-URL  : https://192.168.254.13:10000
+URL  : https://192.168.101.133:10000
 User : <Same access of Docker Server>
 Pass : <Same access of Docker Server>
 
 
 [Portainer]
-URL  : http://192.168.254.13:9000
+URL  : http://192.168.101.133:9000
 User : admin
 Pass : p@ssw0rd
 
 
 [Samba]
-URL  : \\192.168.254.13
-User : 
+URL  : \\192.168.101.133
+User : lguubay
 Pass : p@ssw0rd
 
 
