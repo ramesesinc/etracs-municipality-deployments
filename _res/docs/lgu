@@ -1,0 +1,45 @@
+[Docker Server]
+IP  : 192.168.254.13
+User: 
+Pass: 
+
+
+[DB Access]
+IP   : 192.168.254.197
+User : root
+Pass : 12p@ssw0rd34
+
+
+[Webmin]
+URL  : https://192.168.254.13:10000
+User : <Same access of Docker Server>
+Pass : <Same access of Docker Server>
+
+
+[Portainer]
+URL  : http://192.168.254.13:9000
+User : admin
+Pass : p@ssw0rd
+
+
+[Samba]
+URL  : \\192.168.254.13
+User : 
+Pass : p@ssw0rd
+
+
+[DockerHub Images]
+docker pull nginx:latest
+docker pull ramesesinc/mail-server:latest
+docker pull ramesesinc/notification-server:1.0
+docker pull ramesesinc/queue-server:2.5.02.01
+docker pull ramesesinc/gdx-proxy-server:v004
+docker pull ramesesinc/gdx-client:1.04.03
+docker pull ramesesinc/etracs-web:2.5.02.01
+docker pull ramesesinc/node-download-server:0.0.3
+docker pull ramesesinc/local-epayment-server:2.5.01.02.06
+docker pull ramesesinc/etracs-server-municipality:2.5.04.03.01
+
+
+[GitHub]
+git clone -b bohol-ubay https://github.com/ramesesinc/etracs-municipality-deployments.git
