@@ -730,8 +730,9 @@ class FAASService
 		if (isHyphenateTdNo()) {
 			ntdno += '-'
 		}
-        ntdno += seqSvc.getNextFormattedSeriesA( tdno, seqcount )
-        return ntdno 
+        def key = 'TDNO-' + tdno
+        ntdno += seqSvc.getNextFormattedSeriesA( key, seqcount )
+        return ntdno
     }    	
 
     def isHyphenateTdNo() {
