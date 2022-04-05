@@ -1,15 +1,12 @@
 version: "3"
 
 services:
+  etracs-server:
+    volumes:
+      ## this is only a seed mapping, please do not remove
+      ##
+      - ../../_custom/.emptydir:/.emptydir
 
-   etracs-server:
-      volumes:
-         ## this is only a seed mapping, please do not remove
-         ## 
-         - ../../_custom/.emptydir:/.emptydir
-
-
-         ## temporarily disable RPTIS module 
-         ## until the database is upgraded
-         ## 
-         - ../../_custom/.emptydir:/services/modules/rptis
+      ## temporarily disable RPTIS module
+      ## until the database is upgraded
+      ##
