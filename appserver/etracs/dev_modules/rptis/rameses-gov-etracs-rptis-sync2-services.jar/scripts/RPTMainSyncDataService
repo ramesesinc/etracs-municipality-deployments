@@ -92,7 +92,7 @@ class RPTMainSyncDataService {
 	============================================================*/
 	@ProxyMethod
 	public void processItemsForSync() {
-		def list = em_sync_item.where("state = 'PENDING'").orderBy('parent.dtfiled, parentid, idx').list();
+		def list = em_sync_item.where(['1=1']).orderBy('parent.dtfiled, parentid, idx').list();
 		if (list) {
 			list.each {
 				def writer = null;
@@ -109,7 +109,7 @@ class RPTMainSyncDataService {
 					self.asyncSend(it);
 					writer.write(it.data);
 					writer.close();
-					em_sync_item.find([objid: it.objid]).update([state: 'FORUPLOAD'])
+					em_sync_item.find([objid: it.objid]).delete();
 				} catch( e ) {
 					if (writer) writer.cancel();
 					e.printStackTrace();

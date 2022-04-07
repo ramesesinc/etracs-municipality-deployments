@@ -52,7 +52,7 @@ class RPTLedgerSyncDataSupportService
     @ProxyMethod
     public def getRemoteOrg(faasid){
         def faas = em_faas.select('objid,lguid').find([objid:faasid]).first()
-        if (!faas) throw new Exception('FAAS ' + params.tdno + ' does not exist or has already been deleted.')
+        if (!faas) throw new Exception('FAAS ' + faas.tdno + ' does not exist or has already been deleted.')
         def org = orgSvc.open([objid:faas.lguid])
         if (!org) throw new Exception('Org ' + faas.lguid + ' does not exist or has already been deleted.')
         return [objid: faas.lguid, orgcode: org.code.replaceAll('-', '')]

@@ -9,14 +9,14 @@
 		<field name="dtfiled" required="true" caption="Date Filed" />
 		<field name="orgid" required="true"  searchable="true" indexed="true" />
 		<field name="sender_objid" />
-		<field name="sender_name" caption="Sender" />
+		<field name="sender_name" />
 		<field name="sender_title" />
 		<field name="remote_orgid" required="true" />
-		<field name="remote_orgcode" required="true" caption="Remote" seachable="true" />
+		<field name="remote_orgcode" required="true" />
 		<field name="remote_orgclass" required="true" />
 		<complex name="info" serializer="default" required="false"  />
-		<complex name="remote" ref="sys_org" jointype="many-to-one" includefields="name">
-			<key field="remote_orgid" target="objid" />
-		</complex>
 	</element>
 </schema>
+
+
+

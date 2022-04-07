@@ -12,10 +12,10 @@ class RPTSyncDataCompletedListInterceptor
     @Service('RPTUtil')
     def util;
 
-	@DataContext('rpt_syncdata_item_completed')
+	@DataContext('rpt_syncdata_completed')
 	def em_completed;
 
-	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname=='rpt_syncdata_item_completed'}") 
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname=='rpt_syncdata_completed'}") 
 	public void getNodeList( evt ) {
 		def arg = evt.args[0];
 		def result = evt.result;
@@ -24,7 +24,7 @@ class RPTSyncDataCompletedListInterceptor
         result << [id: "previous", title: "Previous Days"];
 	}
 
-	@Before(pattern="QueryService.getList", eval="#{ args[0]._schemaname == 'rpt_syncdata_item_completed' }")
+	@Before(pattern="QueryService.getList", eval="#{ args[0]._schemaname == 'rpt_syncdata_completed' }")
 	public void getList(def evt) {
 		def o = evt.args[0];
 		if( !o.node?.id ) return;

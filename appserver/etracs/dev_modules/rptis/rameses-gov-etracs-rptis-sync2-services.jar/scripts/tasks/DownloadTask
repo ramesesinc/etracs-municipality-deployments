@@ -11,11 +11,11 @@ class DownloadTask {
     @Service('RPTMainSyncDataService')
     def svc
 
-    @DataContext('rpt_syncdata')
-    def em_syncdata
+    @Service('RPTSyncDataManagementService')
+    def mgmtSvc
 
-    @DataContext('rpt_syncdata_item')
-    def em_sync_item
+    @DataContext('rpt_syncdata_completed')
+    def em_sync_completed
 
     @DataContext('rpt_syncdata_error')
     def em_sync_error
@@ -29,49 +29,35 @@ class DownloadTask {
     @Service('DateService')
     def dtSvc;
 
-    @DataContext('sys_org')
-    def sys_org
-
     def DOWNLOAD_FLAG = "fileserver_download_task_active"
 
-    @Schedule(interval=1)
+    @Schedule(interval=20)
     public void downloadFiles( evt ) {
-        if (!downloaderActive()) {
-            waitTimeout(20);
-            return
-        }
+        if (!downloaderActive()) return
+        if (hasFileForDownload()) return;
 
-        def fordownloadfiles = em_sync_fordownload.where("state = 'FORDOWNLOAD'").orderBy('objid').list(0, 10)
-        if (!fordownloadfiles) {
-            waitTimeout(20);
-            return;
-        }
-
-        fordownloadfiles.each {
-            try {
-                //download file and save to local storage 
-                fu.download(it.objid);
-
-                //delete cloud data
-                fu.delete(it.objid);
-
-                em_sync_fordownload.find([objid: it.objid]).update([state: 'DOWNLOADED']);
-            } catch(err) {
+        println 'DownloadTask [INFO] Fetching files for download'
+        try {
+            fu.getList().each {
                 try {
-                    //try reading the file if existing, update state if downloaded
-                    def reader = fu.readObject(it.objid);
-                    em_sync_fordownload.find([objid: it.objid]).update([state: 'DOWNLOADED']);
-                } catch(ignore) {
-                    err.printStackTrace()
+                    def fordownload = [:];
+                    fordownload.objid = it.Key
+                    fordownload.etag = it.ETag
+                    fordownload.error = false
+                    em_sync_fordownload.save(fordownload);
+                } catch(err) {
+                    err.printStackTrace();
+                    //ignore possible duplicate error
                 }
-            } 
+            }
+        } catch ( e ) {
+            println "DownlaodTask [ERROR] " + e.message;
         }
     }
 
-    
     @Schedule(interval=1)
-    public void syncDownloadedFile( evt ) {
-        def downloadfile = em_sync_fordownload.where("state = 'DOWNLOADED' and error = 0").orderBy('objid').first()
+    public void downloadFile( evt ) {
+        def downloadfile = em_sync_fordownload.where('error = 0').orderBy('objid').first()
         if (!downloadfile) {
             waitTimeout(10);
             return;
@@ -80,36 +66,27 @@ class DownloadTask {
         def reader = null;
         def syncdata = null;
         try {
-            reader = fu.readObject(downloadfile.objid);
-            syncdata = reader.read();
-            syncdata.data = reader.read(); 
-            def orgid = syncdata.parent.remote.orgid;
-            syncdata.parent.remote = getRemoteOrg(syncdata);
-            syncdata.parent.orgid = orgid;
-            syncdata.remote = syncdata.parent.remote;
-
-            svc.receive(syncdata);
-
-            //save syncdata and item
-            syncdata.state = 'FORSYNC';
-            syncdata.dtcreated = dtSvc.serverDate;
-            syncdata.parent.state = syncdata.state;
-            em_syncdata.save(syncdata.parent);
-            em_sync_item.save(syncdata);
-            em_sync_fordownload.find([objid: downloadfile.objid]).delete();
-            em_sync_error.find([objid: syncdata.objid]).delete();
-            reader.deleteFile();
-        } catch(java.io.FileNotFoundException iox) {
-            log('ERROR', 'Downloaded file not exists: ' + downloadfile.objid);
+            reader = fu.getObject(downloadfile.objid);
+			syncdata = reader.read();
+			if (syncdata) {
+				syncdata.data = reader.read(); 
+				svc.receive(syncdata);
+				syncdata.dtcreated = dtSvc.serverDate;
+				em_sync_completed.save(syncdata);            
+			}
+            reader.close();
+            fu.delete(downloadfile.objid);
             em_sync_fordownload.find([objid: downloadfile.objid]).delete();
         } catch (e) {
-            log('INFO', e.message)
-            e.printStackTrace();
-            if (syncdata) {
-                syncdata.state = 'FORSYNC'
+			if (e.message && e.message.equalsIgnoreCase('Internal Server Error')) {
+				println 'Clearing ' + downloadfile.objid
+				fu.delete(downloadfile.objid);
+				em_sync_fordownload.find([objid: downloadfile.objid]).delete();
+			} else if (syncdata) {
                 syncdata.filekey = downloadfile.objid;
                 syncdata.error = ExceptionUtils.getStackTrace(e);
                 syncdata.info = syncdata.info ? syncdata.info : [:]
+                syncdata.remote = syncdata.parent.remote
                 em_sync_error.save(syncdata);
                 em_sync_fordownload.find([objid: downloadfile.objid]).update([error: 1]);
             }
@@ -117,12 +94,19 @@ class DownloadTask {
         }
     }
 
+    @Schedule(interval=300)
+    public void rescheduleErrors( evt ) {
+        if (hasFileForDownload()) return;
+        println 'DownloadTask [INFO] Rescheduling downloads with error...'
+        mgmtSvc.rescheduleErrors();
+    }
+
     def downloaderActive() {
         def status = var.getProperty(DOWNLOAD_FLAG, 0).toString();
         if (status.matches("1|y|yes|t|true")) {
             return true;
         }
-        log('INFO', 'DownloadTask [INFO] inactive');
+        println 'DownloadTask [INFO] inactive' ;
         return false;
     }
 
@@ -136,16 +120,4 @@ class DownloadTask {
         queue.poll(secs, TimeUnit.SECONDS);
     }
 
-    def getRemoteOrg(syncdata) {
-        def org = sys_org.find([objid: syncdata.parent.orgid]).first();
-        return [
-            orgid: org?.objid,
-            orgcode: org?.code.replaceAll('-', ''),
-            orgclass: org.orgclass,
-        ]
-    }
-
-    void log(type, msg) {
-        println 'DownloadTask [' + type + '] ' + msg;
-    }
 }

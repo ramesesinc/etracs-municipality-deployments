@@ -1,8 +1,6 @@
 <schema>
 	<element tablename="rpt_syncdata_error">
 		<field name="objid" primary="true" prefix="SYNCI" />
-		<!-- FORSYNC, PENDING -->
-		<field name="state" default="FORSYNC"/>
 		<field name="filekey" required="true" caption="Key" indexed="true" />
 		<field name="error" required="true"  caption="Error" />
 		<field name="refid" required="true" />
