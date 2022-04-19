@@ -337,6 +337,7 @@ class MachRPUService
     -------------------------------------------------------------------*/
     void saveMachUses(machuses){
         machuses.each{ mu ->
+            if (mu.taxable == null) mu.taxable = true;
             em.save(mu, SCHEMA_MACHUSE)
             saveMachines(mu.machines)
         }
