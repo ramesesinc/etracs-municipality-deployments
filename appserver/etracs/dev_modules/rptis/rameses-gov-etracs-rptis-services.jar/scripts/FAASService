@@ -1090,7 +1090,7 @@ class FAASService
 	}
 
 	void createRpu(faas){
-		if (allowSaveRpu(faas) || rpuSvc.findRpuInfoById(faas.rpu.objid) == null){
+		if (allowSaveRpu(faas) && rpuSvc.findRpuInfoById(faas.rpu.objid) == null){
 			rpuSvc.createRpu(faas.rpu)
 		} else {
 			rpuSvc.updateRpu(faas.rpu)	
