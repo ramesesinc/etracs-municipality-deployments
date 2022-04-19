@@ -119,10 +119,16 @@ public class BatchGRService
 
     @ProxyMethod
     public void delete(entity) {
-        em_batchgr_item.find([parent_objid: entity.objid]).delete()
+        def gritems = em_batchgr_item.select('newfaasid').where('parent_objid = :objid and newfaasid is not null', entity)
+                        .orderBy("pin, suffix DESC")
+                        .list()
+
+        em_batchgr_item.where(['parent_objid = :objid', entity]).delete()
         em_task.find([refid: entity.objid]).delete()
+        txnRefSvc.delete(entity.objid)
         em_batchgr.delete(entity)
-    	deleteRevisedFaases(entity)
+
+    	deleteRevisedFaases(entity, gritems)
     }
 
     @ProxyMethod
@@ -366,18 +372,12 @@ public class BatchGRService
     -------------------------------------------------------*/
     @ProxyMethod
     public void excludeItem(item){
-        def old = em_batchgr_item.find([objid: item.objid]).first()
-        if (!old) {
-            throw new Exception('Item  does not exist or has been deleted.')
-        }
+        excludeFaases(getExcludedItems(item), false);
+    }
 
-        def items = [];
-        if (item.rputype == 'land') {
-            items = em_batchgr_item.find([parent_objid: item.parent.objid, pin: item.pin]).orderBy('suffix desc').list()
-        } else {
-            items = em_batchgr_item.find([objid: item.objid]).list()
-        }
-        excludeFaases(items)
+    @ProxyMethod
+    public void postOnlineExcludeItem(item) {
+        excludeFaases(getExcludedItems(item), true);
     }
 
     @ProxyMethod
@@ -441,14 +441,10 @@ public class BatchGRService
         faasSvc.updateTdNoByRecord(faas)
     }   
 
-    void deleteRevisedFaases(entity) {
-    	em_batchgr_item.where('parent_objid = :objid and newfaasid is not null', entity)
-            .orderBy("pin, suffix DESC")
-    		.list().each {
-    			faasSvc.deleteFaasById(it.newfaasid)
-    		}
-
-        txnRefSvc.delete(entity.objid);
+    void deleteRevisedFaases(entity, gritems) {
+    	gritems.each {
+            faasSvc.deleteFaasById(it.newfaasid)
+        }
     }
 
     void createItemsTxnRef(entity) {
@@ -457,13 +453,17 @@ public class BatchGRService
     	}
     }
 
-    void excludeFaases(items) {
+    void excludeFaases(items, isonline) {
     	items.each {
-    		if (it.newfaasid) {
-                faasSvc.deleteFaasById(it.newfaasid)
-    		}
-    		em_batchgr_item.delete(it)
+            em_batchgr_item.delete(it)
             txnRefSvc.deleteByObjid(it.parent.objid, it.objid)
+    		if (it.newfaasid) {
+                if (isonline) {
+                    faasSvc.onlineDeleteFaasById(it.newfaasid)
+                } else {
+                    faasSvc.deleteFaasById(it.newfaasid)
+                }
+    		}
     	}
     }
 
@@ -493,5 +493,20 @@ public class BatchGRService
         def kind = kinds[entity.rputype] ? kinds[entity.rputype] : 'Land'
         if (!prevry) throw new Exception('Previous revision year setting for ' + kind + ' does not exist')
         return prevry.ry 
+    }
+
+    def getExcludedItems(item) {
+        def old = em_batchgr_item.find([objid: item.objid]).first()
+        if (!old) {
+            throw new Exception('Item  does not exist or has been deleted.')
+        }
+
+        def items = [];
+        if (item.rputype == 'land') {
+            items = em_batchgr_item.find([parent_objid: item.parent.objid, pin: item.pin]).orderBy('suffix desc').list()
+        } else {
+            items = em_batchgr_item.find([objid: item.objid]).list()
+        }
+        return items;
     }
 }

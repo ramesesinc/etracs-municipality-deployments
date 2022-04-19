@@ -111,7 +111,9 @@ class RPTCertificationPropertyTracerService
 	void loadFaasInfo(cert){
 		def faas = getFaasInfo(cert.faasid)
 		if (faas) {
+			def certid = cert.objid 
 			cert.putAll( faas )
+			cert.objid = certid 
 		}
 		certSvc.makeHtmlSafe(cert)
 	}

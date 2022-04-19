@@ -384,3 +384,7 @@ select * from vw_certification_landdetail where faasid = $P{faasid} order by spe
 [getLandImprovements]
 select * from vw_certification_land_improvement where faasid = $P{faasid} order by improvement
 
+
+
+[deleteItems]
+delete from rptcertificationitem where rptcertificationid = $P{objid}

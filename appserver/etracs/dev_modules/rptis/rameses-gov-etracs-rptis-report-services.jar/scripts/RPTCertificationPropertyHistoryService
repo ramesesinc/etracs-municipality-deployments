@@ -54,8 +54,9 @@ class RPTCertificationPropertyHistoryService
 			faas.location = locations.join(', ')
 
 			faas.areatype = faas.classcode.matches('A|AGR') ? 'ha' : 'sqm'
-			
+			def certid = cert.objid 
 			cert.putAll( faas )
+			cert.objid = certid
 		}
 		certSvc.makeHtmlSafe(cert)
 	}
