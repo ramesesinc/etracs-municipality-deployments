@@ -8,7 +8,8 @@ insert into cashreceipt_rpt_share_forposting_repost (
 	receiptid,
 	receiptdate,
 	rptledgerid,
-	error
+	error,
+	receipttype
 )
 select 
 	CONCAT(rp.objid, '-', cr.objid) as objid,
@@ -16,7 +17,8 @@ select
 	cr.objid as receiptid, 
 	cr.receiptdate,
 	rp.refid as rptledgerid,
-	0 as error
+	0 as error,
+	'ONLINE' as receipttype
 from collectionvoucher cv
 inner join remittance rem on cv.objid = rem.collectionvoucherid
 inner join cashreceipt cr on rem.objid = cr.remittanceid

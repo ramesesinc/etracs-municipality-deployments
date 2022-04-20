@@ -12,9 +12,6 @@ class RPTLedgerSyncDataSupportService
     @Service('RPTMainSyncDataService')
     def syncSvc 
     
-    @Service('OrgService')
-    def orgSvc 
-
     @Service('DateService')
     def dtSvc
 
@@ -29,6 +26,9 @@ class RPTLedgerSyncDataSupportService
 
     @DataContext('rptledger_credit')
     def em_credit    
+
+    @DataContext('sys_org')
+    def em_org
 
 
     @ProxyMethod
@@ -46,16 +46,26 @@ class RPTLedgerSyncDataSupportService
             mapping.dtcreated = dtSvc.serverDate
             em_mapping.create(mapping) 
         }
+        mapping.remote.orgcode = mapping.remote.orgcode.replace('-', '')
         return mapping
     }
 
     @ProxyMethod
     public def getRemoteOrg(faasid){
         def faas = em_faas.select('objid,lguid').find([objid:faasid]).first()
-        if (!faas) throw new Exception('FAAS ' + params.tdno + ' does not exist or has already been deleted.')
-        def org = orgSvc.open([objid:faas.lguid])
+        if (!faas) throw new Exception('FAAS ' + faas.tdno + ' does not exist or has already been deleted.')
+        def org = em_org.find([objid:faas.lguid]).first();
         if (!org) throw new Exception('Org ' + faas.lguid + ' does not exist or has already been deleted.')
-        return [objid: faas.lguid, orgcode: org.code.replaceAll('-', '')]
+
+        if ('PROVINCE'.equalsIgnoreCase(env.ORGCLASS)) {
+            return [objid: faas.lguid, orgcode: org.code.replaceAll('-', '')]
+        } else {
+            def parentorg = em_org.find([objid: org.parent.objid]).first();
+            return [
+                objid: faas.lguid, 
+                orgcode: parentorg.code.replaceAll('-', '')
+            ]
+        }
     }
 
 

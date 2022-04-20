@@ -329,6 +329,7 @@ class FAASService
 		em_faas_previous.find([faasid:faas.objid]).delete()
 		em_faas_backtax.find([faasid:faas.objid]).delete()
 		em_restriction.find([parent_objid:faas.objid]).delete()
+		em_faas_list.find([objid: faas.objid]).delete()
 		em_faas.delete(faas)
 
 		if (faas.txntype.newrpu){
@@ -362,6 +363,13 @@ class FAASService
 	public void deleteFaasById( faasid ) {
 		if (faasid) {
 			self.deleteFaas(self.openFaas([objid:faasid]))
+		}
+	}	
+
+	@ProxyMethod
+	public void onlineDeleteFaasById( faasid ) {
+		if (faasid) {
+			deleteFaas(self.openFaas([objid:faasid]))
 		}
 	}	
 
@@ -729,9 +737,12 @@ class FAASService
 		def ntdno = tdno
 		if (isHyphenateTdNo()) {
 			ntdno += '-'
-		}
-        ntdno += seqSvc.getNextFormattedSeriesA( tdno, seqcount )
-        return ntdno 
+		} else {
+            ntdno = ntdno.replace('-', '')
+        }
+        def key = 'TDNO-' + tdno
+        ntdno += seqSvc.getNextFormattedSeriesA( key, seqcount )
+        return ntdno
     }    	
 
     def isHyphenateTdNo() {

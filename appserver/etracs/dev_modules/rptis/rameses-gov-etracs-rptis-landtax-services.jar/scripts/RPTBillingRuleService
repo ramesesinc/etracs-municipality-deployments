@@ -117,7 +117,7 @@ public class RPTBillingRuleService
 	}
 
 	void executeShareRules(request){
-		def grps = ['SUMMARY', 'AFTER_SUMMARY', 'BRGY_SHARE','LGU_SHARE','PROV_SHARE']
+		def grps = ['SUMMARY', 'AFTER_SUMMARY']
 		grps.each{g ->
 			ruleSvc.execute( RULESET, request.facts, request.actions, g);
 		}
@@ -234,7 +234,7 @@ public class RPTBillingRuleService
 			return false 
 		}
 
-		if (rptledger.lastyearpaid == bill.cy && rptledger.lastqtrpaid + 1 == bill.cqtr){
+		if (rptledger.lastyearpaid == bill.cy && rptledger.lastqtrpaid + 1 < bill.cqtr){
 			return false
 		}
 

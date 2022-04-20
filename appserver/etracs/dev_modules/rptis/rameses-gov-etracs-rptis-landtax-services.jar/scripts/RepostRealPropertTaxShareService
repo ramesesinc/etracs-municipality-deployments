@@ -6,8 +6,17 @@ class RepostRealPropertTaxShareService
     @DataContext('cashreceipt_rpt_share_forposting_repost')
     def em_repost;
 
+    @DataContext('rptpayment')
+    def em_rptpayment;
+
+    @DataContext('rptpayment_share')
+    def em_rptpayment_share;
+
     @ActiveDB('landtax_repost_shares')
     def em;
+
+    @ActiveDB(value='landtax_repost_shares_eor', adapter="eor")
+    def em_eor;
 
     @Service('RPTUtil')
     def util;
@@ -33,14 +42,29 @@ class RepostRealPropertTaxShareService
 
         println 'Clearing entries to repost';
         em.clearForRepostEntries(param);
-        println 'Inserting receipts to repost';
-        em.insertReceiptToRepost(param);
-        println 'Deleting realty tax shares to repost';
-        em.deleteRptSharesToRepost(param);
-        println 'Deleting cashreceipt shares to repost';
-        em.deleteCashReceiptSharesToRepost(param);
+        
+        println 'Building ' + param.receipttype + ' receipts to repost';
+        if ('ONLINE'.equalsIgnoreCase(param.receipttype)) {
+            em.insertReceiptToRepost(param);
+            em.deleteRptSharesToRepost(param);
+            em.deleteCashReceiptSharesToRepost(param);
+        } else {
+            def eors = em_eor.getReceiptsToRepost(param);
+            eors.each {eor ->
+                def payments = em_rptpayment.select('objid,refid').find([receiptid: eor.objid]).list();
+                payments.each{payment ->
+                    eor.receiptid = eor.objid;
+                    eor.objid = 'CRR' + new java.rmi.server.UID();
+                    eor.rptpaymentid = payment.objid;
+                    eor.rptledgerid = payment.refid;
+                    em_repost.create(eor);
+                    em_rptpayment_share.find([parentid: payment.objid]).delete();
+                    em_eor.deleteEorShares(eor)
+                }
+            }
+        }
+        
         def repost = em.findRemainingCount(param);
-        println 'repost: ' + repost;
         return (int) repost.remaining;
     }
 

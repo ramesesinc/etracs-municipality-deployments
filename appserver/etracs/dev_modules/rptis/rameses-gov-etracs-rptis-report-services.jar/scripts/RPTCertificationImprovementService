@@ -37,7 +37,9 @@ class RPTCertificationImprovementService
 			locations << faas.lgu.name
 			if (faas.parentlgu?.name) locations << faas.parentlgu.name
 			faas.location = locations.join(', ')
+			def certid = cert.objid
 			cert.putAll( faas )
+			cert.objid = certid
 		}
 		certSvc.makeHtmlSafe(cert)
 	}

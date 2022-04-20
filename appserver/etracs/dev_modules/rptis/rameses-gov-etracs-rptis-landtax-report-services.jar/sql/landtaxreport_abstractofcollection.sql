@@ -656,14 +656,26 @@ select
     b.name as barangay, rl.tdno, rl.cadastrallotno, rl.totalav as assessedavalue,
     rpi.year, rpi.qtr ,
     sum(rpi.basic) as basic, 
+    sum(rpi.basicint) as basicint, 
+    sum(rpi.basicdisc) as basicdisc, 
     sum(rpi.basicdp) as basicdp, 
     sum(rpi.basicnet) as basicnet,
     sum(rpi.sef) as sef, 
+    sum(rpi.sefint) as sefint, 
+    sum(rpi.sefdisc) as sefdisc, 
     sum(rpi.sefdp) as sefdp, 
     sum(rpi.sefnet) as sefnet,
-    sum(rpi.basicidle + rpi.basicidledp) as idlenet,
+    sum(rpi.basicidle) as basicidle, 
+    sum(rpi.basicidleint) as basicidleint, 
+    sum(rpi.basicidledisc) as basicidledisc, 
+    sum(rpi.basicidledp) as basicidledp, 
     sum(rpi.basicidle + rpi.basicidledp) as basicidlenet,
-    sum(rpi.sh + rpi.shdp) as shnet,
+    sum(rpi.basicidle + rpi.basicidledp) as idlenet,
+    sum(rpi.sh) as sh, 
+    sum(rpi.shint) as shint, 
+    sum(rpi.shdisc) as shdisc, 
+    sum(rpi.shdp) as shdp, 
+    sum(rpi.shnet) as shnet,
     sum(rpi.firecode) as firecode,
     sum(rpi.amount) as total
 from rptpayment rp
@@ -701,12 +713,19 @@ from (
 			sum(x.basicdp) as basicdp,
 			sum(x.basicnet) as basicnet,
 			sum(x.sef) as sef,
+			sum(x.sefdisc) as sefdisc,
+			sum(x.sefint) as sefint,
 			sum(x.sefdp) as sefdp,
 			sum(x.sefnet) as sefnet,
 			sum(x.total) as total, 
 			sum(x.basicidle) as basicidle,
 			sum(x.basicidledisc) as basicidledisc,
-			sum(x.basicidleint) as basicidleint
+			sum(x.basicidleint) as basicidleint,
+      sum(x.sh) as sh,
+      sum(x.shdisc) as shdisc,
+      sum(x.shint) as shint,
+			sum(x.shdp) as shdp,
+			sum(x.shnet) as shnet
 	from (
 			select 
 					c.receiptno,
@@ -729,10 +748,15 @@ from (
 					sum(case when cv.objid is null then rpi.sefint else null end ) as sefint,
 					sum(case when cv.objid is null then rpi.sefdp else null end) as sefdp,
 					sum(case when cv.objid is null then rpi.sefnet else null end) as sefnet, 
-					sum(case when cv.objid is null then rpi.basicnet + rpi.sefnet else null end) as total,
 					sum(case when cv.objid is null then rpi.basicidle else null end) as basicidle, 
 					sum(case when cv.objid is null then rpi.basicidleint else null end) as basicidleint, 
-					sum(case when cv.objid is null then rpi.basicidledisc else null end) as basicidledisc
+					sum(case when cv.objid is null then rpi.basicidledisc else null end) as basicidledisc,
+          sum(case when cv.objid is null then rpi.sh else null end ) as sh,
+					sum(case when cv.objid is null then rpi.shdisc else null end ) as shdisc,
+					sum(case when cv.objid is null then rpi.shint else null end ) as shint,
+					sum(case when cv.objid is null then rpi.shdp else null end) as shdp,
+					sum(case when cv.objid is null then rpi.shnet else null end) as shnet,
+					sum(case when cv.objid is null then rpi.amount else null end) as total
 			from cashreceipt c 
 					inner join cashreceipt_rpt crpt on crpt.objid = c.objid
 					inner join rptpayment rp on c.objid = rp.receiptid
