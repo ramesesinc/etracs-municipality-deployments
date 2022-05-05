@@ -1,14 +1,12 @@
 version: "3"
 
 services:
+  etracs-server:
+    volumes:
+      ## this is only a seed mapping, please do not remove
+      ##
+      - ../../_custom/.emptydir:/.emptydir
 
-   etracs-server:
-      volumes:
-         ## this is only a seed mapping, please do not remove
-         ## 
-         - ../../_custom/.emptydir:/.emptydir
-
-
-         ## mounted RPTIS build 255.01.001
-         - ./dev_modules/rptis-255.01.001/server:/services/modules/rptis
-         - ./dev_modules/rptis-255.01.001/server/rptis.conf:/apps/etracs25/modules.conf.d/rptis.conf
+      ## mounted RPTIS build rptis-255.04.04
+      - ./dev_modules/rptis-255.04.04/server:/services/modules/rptis
+      - ./dev_modules/rptis-255.04.04/server/rptis.conf:/apps/etracs25/modules.conf.d/rptis.conf
