@@ -1,3 +1,593 @@
+alter table machdetail 
+	add params text,
+	add smvid varchar(50)
+;
+
+update machdetail set params = '[]' where params is null 
+;
+
+
+
+
+drop table if exists resectionitem;
+drop table if exists resectionaffectedrpu;
+drop table if exists resection_task;
+drop table if exists resection_item;
+drop table if exists resection;
+
+
+CREATE TABLE `resection` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `txnno` varchar(25) NOT NULL,
+  `txndate` datetime NOT NULL,
+  `lgu_objid` varchar(50) NOT NULL,
+  `barangay_objid` varchar(50) NOT NULL,
+  `pintype` varchar(3) NOT NULL,
+  `section` varchar(3) NOT NULL,
+  `originlgu_objid` varchar(50) NOT NULL,
+  `memoranda` varchar(255) DEFAULT NULL,
+  `taskid` varchar(50) DEFAULT NULL,
+  `taskstate` varchar(50) DEFAULT NULL,
+  `assignee_objid` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_resection_txnno` (`txnno`) USING BTREE,
+  KEY `FK_resection_lgu_org` (`lgu_objid`) USING BTREE,
+  KEY `FK_resection_barangay_org` (`barangay_objid`) USING BTREE,
+  KEY `FK_resection_originlgu_org` (`originlgu_objid`) USING BTREE,
+  KEY `ix_resection_state` (`state`) USING BTREE,
+  CONSTRAINT `resection_ibfk_1` FOREIGN KEY (`barangay_objid`) REFERENCES `sys_org` (`objid`),
+  CONSTRAINT `resection_ibfk_2` FOREIGN KEY (`lgu_objid`) REFERENCES `sys_org` (`objid`),
+  CONSTRAINT `resection_ibfk_3` FOREIGN KEY (`originlgu_objid`) REFERENCES `sys_org` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `resection_task` (
+  `objid` varchar(50) NOT NULL,
+  `refid` varchar(50) DEFAULT NULL,
+  `parentprocessid` varchar(50) DEFAULT NULL,
+  `state` varchar(50) DEFAULT NULL,
+  `startdate` datetime DEFAULT NULL,
+  `enddate` datetime DEFAULT NULL,
+  `assignee_objid` varchar(50) DEFAULT NULL,
+  `assignee_name` varchar(100) DEFAULT NULL,
+  `assignee_title` varchar(80) DEFAULT NULL,
+  `actor_objid` varchar(50) DEFAULT NULL,
+  `actor_name` varchar(100) DEFAULT NULL,
+  `actor_title` varchar(80) DEFAULT NULL,
+  `message` varchar(255) DEFAULT NULL,
+  `signature` longtext,
+  PRIMARY KEY (`objid`),
+  KEY `ix_assignee_objid` (`assignee_objid`) USING BTREE,
+  KEY `ix_refid` (`refid`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `resection_item` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `faas_objid` varchar(50) NOT NULL,
+  `faas_rputype` varchar(15) NOT NULL,
+  `faas_pin` varchar(25) NOT NULL,
+  `faas_suffix` int(255) NOT NULL,
+  `newfaas_objid` varchar(50) DEFAULT NULL,
+  `newfaas_rpuid` varchar(50) DEFAULT NULL,
+  `newfaas_rpid` varchar(50) DEFAULT NULL,
+  `newfaas_section` varchar(3) DEFAULT NULL,
+  `newfaas_parcel` varchar(3) DEFAULT NULL,
+  `newfaas_suffix` int(255) DEFAULT NULL,
+  `newfaas_tdno` varchar(25) DEFAULT NULL,
+  `newfaas_fullpin` varchar(50) DEFAULT NULL,
+  `newfaas_claimno` varchar(25) DEFAULT NULL,
+  `faas_claimno` varchar(25) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_resection_item_tdno` (`newfaas_tdno`) USING BTREE,
+  KEY `FK_resection_item_item` (`parent_objid`) USING BTREE,
+  KEY `FK_resection_item_faas` (`faas_objid`) USING BTREE,
+  KEY `FK_resection_item_newfaas` (`newfaas_objid`) USING BTREE,
+  KEY `ix_resection_item_fullpin` (`newfaas_fullpin`) USING BTREE,
+  CONSTRAINT `resection_item_ibfk_1` FOREIGN KEY (`faas_objid`) REFERENCES `faas` (`objid`),
+  CONSTRAINT `resection_item_ibfk_2` FOREIGN KEY (`parent_objid`) REFERENCES `resection` (`objid`),
+  CONSTRAINT `resection_item_ibfk_3` FOREIGN KEY (`newfaas_objid`) REFERENCES `faas` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `rptacknowledgement` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `txnno` varchar(25) NOT NULL,
+  `txndate` datetime DEFAULT NULL,
+  `taxpayer_objid` varchar(50) DEFAULT NULL,
+  `txntype_objid` varchar(50) DEFAULT NULL,
+  `releasedate` datetime DEFAULT NULL,
+  `releasemode` varchar(50) DEFAULT NULL,
+  `receivedby` varchar(255) DEFAULT NULL,
+  `remarks` varchar(255) DEFAULT NULL,
+  `pin` varchar(25) DEFAULT NULL,
+  `createdby_objid` varchar(25) DEFAULT NULL,
+  `createdby_name` varchar(25) DEFAULT NULL,
+  `createdby_title` varchar(25) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_rptacknowledgement_txnno` (`txnno`) USING BTREE,
+  KEY `ix_rptacknowledgement_pin` (`pin`) USING BTREE,
+  KEY `ix_rptacknowledgement_taxpayerid` (`taxpayer_objid`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `rptacknowledgement_item` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `trackingno` varchar(25) DEFAULT NULL,
+  `faas_objid` varchar(50) DEFAULT NULL,
+  `newfaas_objid` varchar(50) DEFAULT NULL,
+  `remarks` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_rptacknowledgement_itemno` (`trackingno`) USING BTREE,
+  KEY `ix_rptacknowledgement_parentid` (`parent_objid`) USING BTREE,
+  KEY `ix_rptacknowledgement_item_faasid` (`faas_objid`) USING BTREE,
+  KEY `ix_rptacknowledgement_item_newfaasid` (`newfaas_objid`) USING BTREE,
+  CONSTRAINT `rptacknowledgement_item_ibfk_1` FOREIGN KEY (`parent_objid`) REFERENCES `rptacknowledgement` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `rptcertification_online` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `reftype` varchar(25) NOT NULL,
+  `refid` varchar(50) NOT NULL,
+  `refno` varchar(50) NOT NULL,
+  `refdate` date NOT NULL,
+  `orno` varchar(25) DEFAULT NULL,
+  `ordate` date DEFAULT NULL,
+  `oramount` decimal(16,2) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_state` (`state`) USING BTREE,
+  KEY `ix_refid` (`refid`) USING BTREE,
+  KEY `ix_refno` (`refno`) USING BTREE,
+  KEY `ix_orno` (`orno`) USING BTREE,
+  CONSTRAINT `rptcertification_online_ibfk_1` FOREIGN KEY (`objid`) REFERENCES `rptcertification` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+alter table `rptcompromise_item`  add qtr int;
+
+
+alter table rptledger_item 
+	add fromqtr int,
+	add toqtr int
+;
+
+
+drop table if exists `rpttaxcredit`  
+;
+
+CREATE TABLE `rpttaxcredit` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `type` varchar(25) NOT NULL,
+  `txnno` varchar(25) DEFAULT NULL,
+  `txndate` datetime DEFAULT NULL,
+  `reftype` varchar(25) DEFAULT NULL,
+  `refid` varchar(50) DEFAULT NULL,
+  `refno` varchar(25) NOT NULL,
+  `refdate` date NOT NULL,
+  `amount` decimal(16,2) NOT NULL,
+  `amtapplied` decimal(16,2) NOT NULL,
+  `rptledger_objid` varchar(50) NOT NULL,
+  `srcledger_objid` varchar(50) DEFAULT NULL,
+  `remarks` varchar(255) DEFAULT NULL,
+  `approvedby_objid` varchar(50) DEFAULT NULL,
+  `approvedby_name` varchar(150) DEFAULT NULL,
+  `approvedby_title` varchar(75) DEFAULT NULL,
+  `info` text,
+  `discapplied` decimal(16,2) NOT NULL,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_txnno` (`txnno`) USING BTREE,
+  KEY `ix_state` (`state`) USING BTREE,
+  KEY `ix_type` (`type`) USING BTREE,
+  KEY `ix_reftype` (`reftype`) USING BTREE,
+  KEY `ix_refid` (`refid`) USING BTREE,
+  KEY `ix_refno` (`refno`) USING BTREE,
+  KEY `ix_rptledger_objid` (`rptledger_objid`) USING BTREE,
+  KEY `ix_srcledger_objid` (`srcledger_objid`) USING BTREE,
+  KEY `fk_rpttaxcredit_sys_user` (`approvedby_objid`) USING BTREE,
+  CONSTRAINT `rpttaxcredit_ibfk_1` FOREIGN KEY (`rptledger_objid`) REFERENCES `rptledger` (`objid`),
+  CONSTRAINT `rpttaxcredit_ibfk_2` FOREIGN KEY (`srcledger_objid`) REFERENCES `rptledger` (`objid`),
+  CONSTRAINT `rpttaxcredit_ibfk_3` FOREIGN KEY (`approvedby_objid`) REFERENCES `sys_user` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+alter table rpu add isonline int default 0
+;
+alter table rpu add stewardparentrpumasterid varchar(50)
+;
+
+
+
+/*===========================================
+*
+*  ENTITY MAPPING (PROVINCE)
+*
+============================================*/
+
+DROP TABLE IF EXISTS `entity_mapping`
+;
+
+CREATE TABLE `entity_mapping` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `org_objid` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+drop view if exists vw_entity_mapping
+;
+
+create view vw_entity_mapping
+as 
+select 
+  r.*,
+  e.entityno,
+  e.name, 
+  e.address_text as address_text,
+  a.province as address_province,
+  a.municipality as address_municipality
+from entity_mapping r 
+inner join entity e on r.objid = e.objid 
+left join entity_address a on e.address_objid = a.objid
+left join sys_org b on a.barangay_objid = b.objid 
+left join sys_org m on b.parent_objid = m.objid 
+;
+
+
+
+
+/*===========================================
+*
+*  CERTIFICATION UPDATES
+*
+============================================*/
+drop view if exists vw_rptcertification_item
+;
+
+create view vw_rptcertification_item
+as 
+SELECT 
+  rci.rptcertificationid,
+  f.objid as faasid,
+  f.fullpin, 
+  f.tdno,
+  e.objid as taxpayerid,
+  e.name as taxpayer_name, 
+  f.owner_name, 
+  f.administrator_name,
+  f.titleno,  
+  f.rpuid, 
+  pc.code AS classcode, 
+  pc.name AS classname,
+  so.name AS lguname,
+  b.name AS barangay, 
+  r.rputype, 
+  r.suffix,
+  r.totalareaha AS totalareaha,
+  r.totalareasqm AS totalareasqm,
+  r.totalav,
+  r.totalmv, 
+  rp.street,
+  rp.blockno,
+  rp.cadastrallotno,
+  rp.surveyno,
+  r.taxable,
+  f.effectivityyear,
+  f.effectivityqtr
+FROM rptcertificationitem rci 
+  INNER JOIN faas f ON rci.refid = f.objid 
+  INNER JOIN rpu r ON f.rpuid = r.objid 
+  INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
+  INNER JOIN realproperty rp ON f.realpropertyid = rp.objid 
+  INNER JOIN barangay b ON rp.barangayid = b.objid 
+  INNER JOIN sys_org so on f.lguid = so.objid 
+  INNER JOIN entity e on f.taxpayer_objid = e.objid 
+;
+
+
+
+/*===========================================
+*
+*  SUBDIVISION ASSISTANCE
+*
+============================================*/
+drop table if exists subdivision_assist_item
+; 
+
+drop table if exists subdivision_assist
+; 
+
+CREATE TABLE `subdivision_assist` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `taskstate` varchar(50) NOT NULL,
+  `assignee_objid` varchar(50) NOT NULL,
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+alter table subdivision_assist 
+add constraint fk_subdivision_assist_subdivision foreign key(parent_objid)
+references subdivision(objid)
+;
+
+alter table subdivision_assist 
+add constraint fk_subdivision_assist_user foreign key(assignee_objid)
+references sys_user(objid)
+;
+
+create index ix_parent_objid on subdivision_assist(parent_objid)
+;
+
+create index ix_assignee_objid on subdivision_assist(assignee_objid)
+;
+
+create unique index ux_parent_assignee on subdivision_assist(parent_objid, taskstate, assignee_objid)
+;
+
+
+CREATE TABLE `subdivision_assist_item` (
+`objid` varchar(50) NOT NULL,
+  `subdivision_objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `pintype` varchar(10) NOT NULL,
+  `section` varchar(5) NOT NULL,
+  `startparcel` int(255) NOT NULL,
+  `endparcel` int(255) NOT NULL,
+  `parcelcount` int(11) DEFAULT NULL,
+  `parcelcreated` int(11) DEFAULT NULL,
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+alter table subdivision_assist_item 
+add constraint fk_subdivision_assist_item_subdivision foreign key(subdivision_objid)
+references subdivision(objid)
+;
+
+alter table subdivision_assist_item 
+add constraint fk_subdivision_assist_item_subdivision_assist foreign key(parent_objid)
+references subdivision_assist(objid)
+;
+
+create index ix_subdivision_objid on subdivision_assist_item(subdivision_objid)
+;
+
+create index ix_parent_objid on subdivision_assist_item(parent_objid)
+;
+
+
+
+/*==================================================
+**
+** REALTY TAX CREDIT
+**
+===================================================*/
+
+drop table if exists rpttaxcredit
+;
+
+
+
+CREATE TABLE `rpttaxcredit` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `type` varchar(25) NOT NULL,
+  `txnno` varchar(25) DEFAULT NULL,
+  `txndate` datetime DEFAULT NULL,
+  `reftype` varchar(25) DEFAULT NULL,
+  `refid` varchar(50) DEFAULT NULL,
+  `refno` varchar(25) NOT NULL,
+  `refdate` date NOT NULL,
+  `amount` decimal(16,2) NOT NULL,
+  `amtapplied` decimal(16,2) NOT NULL,
+  `rptledger_objid` varchar(50) NOT NULL,
+  `srcledger_objid` varchar(50) DEFAULT NULL,
+  `remarks` varchar(255) DEFAULT NULL,
+  `approvedby_objid` varchar(50) DEFAULT NULL,
+  `approvedby_name` varchar(150) DEFAULT NULL,
+  `approvedby_title` varchar(75) DEFAULT NULL,
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+create index ix_state on rpttaxcredit(state)
+;
+
+create index ix_type on rpttaxcredit(type)
+;
+
+create unique index ux_txnno on rpttaxcredit(txnno)
+;
+
+create index ix_reftype on rpttaxcredit(reftype)
+;
+
+create index ix_refid on rpttaxcredit(refid)
+;
+
+create index ix_refno on rpttaxcredit(refno)
+;
+
+create index ix_rptledger_objid on rpttaxcredit(rptledger_objid)
+;
+
+create index ix_srcledger_objid on rpttaxcredit(srcledger_objid)
+;
+
+alter table rpttaxcredit
+add constraint fk_rpttaxcredit_rptledger foreign key (rptledger_objid)
+references rptledger (objid)
+;
+
+alter table rpttaxcredit
+add constraint fk_rpttaxcredit_srcledger foreign key (srcledger_objid)
+references rptledger (objid)
+;
+
+alter table rpttaxcredit
+add constraint fk_rpttaxcredit_sys_user foreign key (approvedby_objid)
+references sys_user(objid)
+;
+
+
+
+
+/*==================================================
+**
+** AFFECTED FAS TXNTYPE (DP)
+**
+===================================================*/
+
+INSERT INTO `sys_var` (`name`, `value`, `description`, `datatype`, `category`) 
+VALUES ('faas_affected_rpu_txntype_dp', '0', 'Set affected improvements FAAS txntype to DP e.g. SD and CS', 'checkbox', 'ASSESSOR')
+;
+
+
+/*===============================================================
+**
+** FAAS ANNOTATION
+**
+===============================================================*/
+CREATE TABLE `faasannotation_faas` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `faas_objid` varchar(50) NOT NULL,
+  PRIMARY KEY (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+alter table faasannotation_faas 
+add constraint fk_faasannotationfaas_faasannotation foreign key(parent_objid)
+references faasannotation (objid)
+;
+
+alter table faasannotation_faas 
+add constraint fk_faasannotationfaas_faas foreign key(faas_objid)
+references faas (objid)
+;
+
+create index ix_parent_objid on faasannotation_faas(parent_objid)
+;
+
+create index ix_faas_objid on faasannotation_faas(faas_objid)
+;
+
+
+create unique index ux_parent_faas on faasannotation_faas(parent_objid, faas_objid)
+;
+
+alter table faasannotation modify column faasid varchar(50) null
+;
+
+
+
+-- insert annotated faas
+insert into faasannotation_faas(
+  objid, 
+  parent_objid,
+  faas_objid 
+)
+select 
+  objid, 
+  objid as parent_objid,
+  faasid as faas_objid 
+from faasannotation
+;
+
+
+
+/*============================================
+*
+*  LEDGER FAAS FACTS
+*
+=============================================*/
+INSERT INTO `sys_var` (`name`, `value`, `description`, `datatype`, `category`) 
+VALUES ('rptledger_rule_include_ledger_faases', '0', 'Include Ledger FAASes as rule facts', 'checkbox', 'LANDTAX')
+;
+
+INSERT INTO `sys_var` (`name`, `value`, `description`, `datatype`, `category`) 
+VALUES ('rptledger_post_ledgerfaas_by_actualuse', '0', 'Post by Ledger FAAS by actual use', 'checkbox', 'LANDTAX')
+;
+
+
+/* PREVTAXABILITY */
+alter table faas_previous add prevtaxability varchar(10)
+;
+
+
+update faas_previous pf, faas f, rpu r set 
+  pf.prevtaxability = case when r.taxable = 1 then 'TAXABLE' else 'EXEMPT' end 
+where pf.prevfaasid = f.objid
+and f.rpuid = r.objid 
+and pf.prevtaxability is null 
+;
+
+
+
+
+alter table faas_task add returnedby varchar(150);
+alter table subdivision_task add returnedby varchar(150);
+alter table consolidation_task add returnedby varchar(150);
+alter table cancelledfaas_task  add returnedby varchar(150);
+
+alter table cancelledfaas_signatory 
+	add assessor_name varchar(150),
+	add assessor_title varchar(50),
+	add reviewer_taskid varchar(50),
+	add reviewer_dtsigned datetime,
+	add reviewer_title varchar(50),
+	add reviewer_name varchar(150),
+	add reviewer_objid varchar(50)
+;
+
+alter table faas_signatory 
+	add assessor_name varchar(150),
+	add assessor_title varchar(50),
+	add reviewer_taskid varchar(50),
+	add reviewer_dtsigned datetime,
+	add reviewer_title varchar(50),
+	add reviewer_name varchar(150),
+	add reviewer_objid varchar(50)
+;
+
+
+
+
+alter table bldgrpu 
+	add occpermitno varchar(50),
+	add dtconstructed date
+;
+
+CREATE TABLE `assessmentnotice_online` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `reftype` varchar(25) NOT NULL,
+  `refid` varchar(50) NOT NULL,
+  `refno` varchar(50) NOT NULL,
+  `refdate` date NOT NULL,
+  `orno` varchar(25) DEFAULT NULL,
+  `ordate` date DEFAULT NULL,
+  `oramount` decimal(16,2) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_state` (`state`) USING BTREE,
+  KEY `ix_refid` (`refid`) USING BTREE,
+  KEY `ix_refno` (`refno`) USING BTREE,
+  KEY `ix_orno` (`orno`) USING BTREE,
+  CONSTRAINT `assessmentnotice_online_ibfk_1` FOREIGN KEY (`objid`) REFERENCES `assessmentnotice` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
 drop view if exists vw_report_orc
 ;
 
@@ -39,11 +629,19 @@ where f.state in ('CURRENT', 'CANCELLED')
 
 
 
+
 create index ix_year on rptpayment_item (year)
 ;
 create index ix_revperiod on rptpayment_item (revperiod)
 ;
 create index ix_revtype on rptpayment_item (revtype)
+;
+
+
+
+alter table rptpayment_share 
+	add iscommon int default 0,
+	add `year` int 
 ;
 
 
@@ -552,6 +1150,162 @@ CREATE TABLE `bldgtype_storeyadjustment_bldgkind` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
 
+CREATE TABLE `batch_rpttaxcredit` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `txndate` date NOT NULL,
+  `txnno` varchar(25) NOT NULL,
+  `rate` decimal(10,2) NOT NULL,
+  `paymentfrom` date DEFAULT NULL,
+  `paymentto` varchar(255) DEFAULT NULL,
+  `creditedyear` int(255) NOT NULL,
+  `reason` varchar(255) NOT NULL,
+  `validity` date DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_state` (`state`) USING BTREE,
+  KEY `ix_txnno` (`txnno`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `batch_rpttaxcredit_ledger` (
+  `objid` varchar(50) NOT NULL,
+  `parentid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `error` varchar(255) DEFAULT NULL,
+  `barangayid` varchar(50) NOT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_parentid` (`parentid`) USING BTREE,
+  KEY `ix_state` (`state`) USING BTREE,
+  KEY `ix_barangayid` (`barangayid`) USING BTREE,
+  CONSTRAINT `batch_rpttaxcredit_ledger_ibfk_1` FOREIGN KEY (`parentid`) REFERENCES `batch_rpttaxcredit` (`objid`),
+  CONSTRAINT `batch_rpttaxcredit_ledger_ibfk_2` FOREIGN KEY (`objid`) REFERENCES `rptledger` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `batch_rpttaxcredit_ledger_posted` (
+  `objid` varchar(50) NOT NULL,
+  `parentid` varchar(50) NOT NULL,
+  `barangayid` varchar(50) NOT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_parentid` (`parentid`) USING BTREE,
+  KEY `ix_barangayid` (`barangayid`) USING BTREE,
+  CONSTRAINT `batch_rpttaxcredit_ledger_posted_ibfk_1` FOREIGN KEY (`parentid`) REFERENCES `batch_rpttaxcredit` (`objid`),
+  CONSTRAINT `batch_rpttaxcredit_ledger_posted_ibfk_2` FOREIGN KEY (`objid`) REFERENCES `rptledger` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+drop table if exists batchgr_error;
+drop table if exists batchgr_forprocess;
+drop table if exists batchgr_log;
+drop table if exists batchgr_task;
+drop table if exists batchgr_item;
+drop table if exists batchgr;
+
+
+CREATE TABLE `batchgr` (
+  `objid` varchar(50) NOT NULL,
+  `state` varchar(25) NOT NULL,
+  `ry` int(255) NOT NULL,
+  `lgu_objid` varchar(50) NOT NULL,
+  `barangay_objid` varchar(50) NOT NULL,
+  `rputype` varchar(15) DEFAULT NULL,
+  `classification_objid` varchar(50) DEFAULT NULL,
+  `section` varchar(10) DEFAULT NULL,
+  `memoranda` varchar(100) DEFAULT NULL,
+  `txntype_objid` varchar(50) DEFAULT NULL,
+  `txnno` varchar(25) DEFAULT NULL,
+  `txndate` datetime DEFAULT NULL,
+  `effectivityyear` int(11) DEFAULT NULL,
+  `effectivityqtr` int(11) DEFAULT NULL,
+  `originlgu_objid` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_barangay_objid` (`barangay_objid`) USING BTREE,
+  KEY `ix_state` (`state`) USING BTREE,
+  KEY `fk_lgu_objid` (`lgu_objid`) USING BTREE,
+  KEY `ix_ry` (`ry`) USING BTREE,
+  KEY `ix_txnno` (`txnno`) USING BTREE,
+  KEY `ix_classificationid` (`classification_objid`) USING BTREE,
+  KEY `ix_section` (`section`) USING BTREE,
+  CONSTRAINT `batchgr_ibfk_1` FOREIGN KEY (`barangay_objid`) REFERENCES `sys_org` (`objid`),
+  CONSTRAINT `batchgr_ibfk_2` FOREIGN KEY (`classification_objid`) REFERENCES `propertyclassification` (`objid`),
+  CONSTRAINT `batchgr_ibfk_3` FOREIGN KEY (`lgu_objid`) REFERENCES `sys_org` (`objid`),
+  CONSTRAINT `batchgr_ibfk_4` FOREIGN KEY (`barangay_objid`) REFERENCES `sys_org` (`objid`),
+  CONSTRAINT `batchgr_ibfk_5` FOREIGN KEY (`classification_objid`) REFERENCES `propertyclassification` (`objid`),
+  CONSTRAINT `batchgr_ibfk_6` FOREIGN KEY (`lgu_objid`) REFERENCES `sys_org` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `batchgr_task` (
+  `objid` varchar(50) NOT NULL,
+  `refid` varchar(50) DEFAULT NULL,
+  `parentprocessid` varchar(50) DEFAULT NULL,
+  `state` varchar(50) DEFAULT NULL,
+  `startdate` datetime DEFAULT NULL,
+  `enddate` datetime DEFAULT NULL,
+  `assignee_objid` varchar(50) DEFAULT NULL,
+  `assignee_name` varchar(100) DEFAULT NULL,
+  `assignee_title` varchar(80) DEFAULT NULL,
+  `actor_objid` varchar(50) DEFAULT NULL,
+  `actor_name` varchar(100) DEFAULT NULL,
+  `actor_title` varchar(80) DEFAULT NULL,
+  `message` varchar(255) DEFAULT NULL,
+  `signature` longtext,
+  `returnedby` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_assignee_objid` (`assignee_objid`) USING BTREE,
+  KEY `ix_refid` (`refid`) USING BTREE,
+  CONSTRAINT `batchgr_task_ibfk_1` FOREIGN KEY (`refid`) REFERENCES `batchgr` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `batchgr_item` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `state` varchar(50) NOT NULL,
+  `rputype` varchar(15) NOT NULL,
+  `tdno` varchar(50) NOT NULL,
+  `fullpin` varchar(50) NOT NULL,
+  `pin` varchar(50) NOT NULL,
+  `suffix` int(255) NOT NULL,
+  `newfaasid` varchar(50) DEFAULT NULL,
+  `error` text,
+  `subsuffix` int(11) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `fk_batchgr_item_batchgr` (`parent_objid`) USING BTREE,
+  KEY `fk_batchgr_item_newfaasid` (`newfaasid`) USING BTREE,
+  KEY `fk_batchgr_item_tdno` (`tdno`) USING BTREE,
+  KEY `fk_batchgr_item_pin` (`pin`) USING BTREE,
+  CONSTRAINT `batchgr_item_ibfk_1` FOREIGN KEY (`parent_objid`) REFERENCES `batchgr` (`objid`),
+  CONSTRAINT `batchgr_item_ibfk_2` FOREIGN KEY (`objid`) REFERENCES `faas` (`objid`),
+  CONSTRAINT `batchgr_item_ibfk_3` FOREIGN KEY (`newfaasid`) REFERENCES `faas` (`objid`),
+  CONSTRAINT `batchgr_item_ibfk_4` FOREIGN KEY (`objid`) REFERENCES `faas` (`objid`),
+  CONSTRAINT `batchgr_item_ibfk_5` FOREIGN KEY (`objid`) REFERENCES `faas` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+
+drop TABLE if exists `machine_smv`;
+
+CREATE TABLE `machine_smv` (
+  `objid` varchar(50) NOT NULL,
+  `parent_objid` varchar(50) NOT NULL,
+  `machine_objid` varchar(50) NOT NULL,
+  `expr` varchar(255) NOT NULL,
+  `previd` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_parent_objid` (`parent_objid`) USING BTREE,
+  KEY `ix_machine_objid` (`machine_objid`) USING BTREE,
+  KEY `ix_previd` (`previd`) USING BTREE,
+  CONSTRAINT `machine_smv_ibfk_1` FOREIGN KEY (`machine_objid`) REFERENCES `machine` (`objid`),
+  CONSTRAINT `machine_smv_ibfk_2` FOREIGN KEY (`previd`) REFERENCES `machine_smv` (`objid`),
+  CONSTRAINT `machine_smv_ibfk_3` FOREIGN KEY (`parent_objid`) REFERENCES `machrysetting` (`objid`),
+  CONSTRAINT `machine_smv_ibfk_4` FOREIGN KEY (`machine_objid`) REFERENCES `machine` (`objid`),
+  CONSTRAINT `machine_smv_ibfk_5` FOREIGN KEY (`previd`) REFERENCES `machine_smv` (`objid`),
+  CONSTRAINT `machine_smv_ibfk_6` FOREIGN KEY (`parent_objid`) REFERENCES `machrysetting` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
 
 drop view if exists vw_assessment_notice_item;
 drop view if exists vw_assessment_notice;
