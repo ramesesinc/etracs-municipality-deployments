@@ -1373,5 +1373,44 @@ INSERT INTO `businessvariable` (`objid`, `state`, `name`, `datatype`, `caption`,
 INSERT INTO `businessvariable` (`objid`, `state`, `name`, `datatype`, `caption`, `description`, `arrayvalues`, `system`, `sortorder`, `category`, `handler`) VALUES ('WT_30KG_TO_BELOW_300KG', 'DRAFT', 'WT_30KG_TO_BELOW_300KG', 'integer', 'NO OF WEIGHTS (30KG- 300KG BELOW)', NULL, '[]', '0', '0', NULL, NULL);
 INSERT INTO `businessvariable` (`objid`, `state`, `name`, `datatype`, `caption`, `description`, `arrayvalues`, `system`, `sortorder`, `category`, `handler`) VALUES ('WT_OVER_300KG', 'DRAFT', 'WT_OVER_300KG', 'integer', 'NO OF WEIGHTS (OVER 3000KG)', NULL, '[]', '0', '0', NULL, NULL);
 
+
+CREATE TABLE `online_business_application_doc` (
+  `objid` varchar(50) NOT NULL,
+  `parentid` varchar(50) NOT NULL,
+  `doc_type` varchar(50) NOT NULL,
+  `doc_title` varchar(255) NOT NULL,
+  `attachment_objid` varchar(50) NOT NULL,
+  `attachment_name` varchar(255) NOT NULL,
+  `attachment_path` varchar(255) NOT NULL,
+  `fs_filetype` varchar(10) NOT NULL,
+  `fs_filelocid` varchar(50) DEFAULT NULL,
+  `fs_fileid` varchar(50) DEFAULT NULL,
+  `lockid` varchar(50) DEFAULT NULL,
+  `fs_state` varchar(20) NOT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_parentid` (`parentid`) USING BTREE,
+  KEY `ix_attachment_objid` (`attachment_objid`) USING BTREE,
+  KEY `ix_fs_filelocid` (`fs_filelocid`) USING BTREE,
+  KEY `ix_fs_fileid` (`fs_fileid`) USING BTREE,
+  KEY `ix_lockid` (`lockid`) USING BTREE,
+  CONSTRAINT `online_business_application_doc_ibfk_1` FOREIGN KEY (`parentid`) REFERENCES `online_business_application` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+CREATE TABLE `online_business_application_doc_fordownload` (
+  `objid` varchar(50) NOT NULL,
+  `scheduledate` datetime NOT NULL,
+  `msg` text,
+  `filesize` int(11) NOT NULL DEFAULT '0',
+  `bytesprocessed` int(11) NOT NULL DEFAULT '0',
+  `lockid` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_scheduledate` (`scheduledate`) USING BTREE,
+  KEY `ix_lockid` (`lockid`) USING BTREE,
+  CONSTRAINT `online_business_application_doc_fordownload_ibfk_1` FOREIGN KEY (`objid`) REFERENCES `online_business_application_doc` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
 set foreign_key_checks = 1
 ;
