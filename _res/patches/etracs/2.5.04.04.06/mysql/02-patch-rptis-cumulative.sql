@@ -1523,3 +1523,50 @@ CREATE VIEW `vw_txn_log` AS select distinct `u`.`objid` AS `userid`,`u`.`name` A
 
 
 
+drop table if exists `cashreceipt_rpt_share_forposting_repost`
+;
+
+drop TABLE if exists `cashreceipt_rpt_share_forposting` 
+;
+
+CREATE TABLE `cashreceipt_rpt_share_forposting` (
+  `objid` varchar(50) NOT NULL,
+  `receiptid` varchar(50) NOT NULL,
+  `rptledgerid` varchar(50) NOT NULL,
+  `txndate` datetime NOT NULL,
+  `error` int(255) NOT NULL,
+  `msg` text,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_receiptid_rptledgerid` (`receiptid`,`rptledgerid`) USING BTREE,
+  KEY `fk_cashreceipt_rpt_share_forposing_rptledger` (`rptledgerid`) USING BTREE,
+  KEY `fk_cashreceipt_rpt_share_forposing_cashreceipt` (`receiptid`) USING BTREE,
+  CONSTRAINT `cashreceipt_rpt_share_forposting_ibfk_1` FOREIGN KEY (`receiptid`) REFERENCES `cashreceipt` (`objid`),
+  CONSTRAINT `cashreceipt_rpt_share_forposting_ibfk_2` FOREIGN KEY (`rptledgerid`) REFERENCES `rptledger` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+CREATE TABLE `cashreceipt_rpt_share_forposting_repost` (
+  `objid` varchar(50) NOT NULL,
+  `rptpaymentid` varchar(50) NOT NULL,
+  `receiptid` varchar(50) NOT NULL,
+  `receiptdate` date NOT NULL,
+  `rptledgerid` varchar(50) NOT NULL,
+  `error` int(11) DEFAULT '0',
+  `msg` text,
+  `receipttype` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  UNIQUE KEY `ux_receiptid_rptledgerid` (`receiptid`,`rptledgerid`) USING BTREE,
+  KEY `fk_rptshare_repost_rptledgerid` (`rptledgerid`) USING BTREE,
+  KEY `fk_rptshare_repost_cashreceiptid` (`receiptid`) USING BTREE,
+  CONSTRAINT `cashreceipt_rpt_share_forposting_repost_ibfk_1` FOREIGN KEY (`receiptid`) REFERENCES `cashreceipt` (`objid`),
+  CONSTRAINT `cashreceipt_rpt_share_forposting_repost_ibfk_2` FOREIGN KEY (`rptledgerid`) REFERENCES `rptledger` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+
+alter table `rpttaxcredit` 
+	add info text, 
+	add discapplied decimal(16,2) default 0
+;
+

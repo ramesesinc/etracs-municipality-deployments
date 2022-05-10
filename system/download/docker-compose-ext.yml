@@ -1,8 +1,7 @@
 version: "3"
 
 services:
-
-   download-node-server:
-      volumes:
-         ## mounted RPTIS build 255.01.001
-         - ../../appserver/etracs/dev_modules/rptis-255.01.001/client:/apps/server/public/resources/downloads/modules/rptis
+  download-node-server:
+    volumes:
+      ## mounted RPTIS build rptis-255.04.04
+      - ../../appserver/etracs/dev_modules/rptis-255.04.04/client:/apps/server/public/resources/downloads/modules/rptis
