@@ -1,0 +1,14 @@
+2.5.04.04
+==========================================================
+
+LANDTAX:
+    - Report: List of Real Property Payment
+    - Report: List of Newly Assessed Properties
+    - Ledger: update based on FAAS changeinfo
+    - Report: shares: index tables and update statements
+
+ASSESSOR:
+    - Subdivision: clear txnref when deleting mother land    
+    - Report: faas: machinery: display condition when acquired
+    - Report: Ownership Record Card
+    - Report: TMCR (Modified): dislay "X" for mach column
