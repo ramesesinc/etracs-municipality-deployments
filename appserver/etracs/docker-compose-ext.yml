@@ -1,16 +1,9 @@
 version: "3"
 
 services:
-  etracs-server:
-    volumes:
-      - ./dev_modules/bpls:/services/modules/bpls
-      - ./dev_modules/rules:/services/modules/rules
-      - ./dev_modules/admin:/services/modules/admin
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-landtax-report-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-landtax-report-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-landtax-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-landtax-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-municipality-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-municipality-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-report-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-report-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-sync2-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-sync2-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-sms-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-sms-services.jar
-      - ./dev_modules/rptis/rameses-gov-etracs-rptis-municipality-landtax-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-municipality-landtax-services.jar
+
+   etracs-server:
+      volumes:
+         ## this is only a seed mapping, please do not remove
+         ## 
+         - ../../_custom/.emptydir:/.emptydir
