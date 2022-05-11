@@ -233,3 +233,36 @@ GO
 INSERT INTO  sys_usergroup ([objid], [title], [domain], [userclass], [orgclass], [role]) VALUES ('RPT.CERTIFICATION_VERIFIER', 'RPT CERTIFICATION_VERIFIER', 'RPT', NULL, NULL, 'CERTIFICATION_VERIFIER')
 GO
 
+
+alter table rptcertification add taskid varchar(50)
+go
+
+CREATE TABLE rptcertification_task (
+  objid varchar(50) NOT NULL,
+  refid varchar(50) DEFAULT NULL,
+  parentprocessid varchar(50) DEFAULT NULL,
+  state varchar(50) DEFAULT NULL,
+  startdate datetime DEFAULT NULL,
+  enddate datetime DEFAULT NULL,
+  assignee_objid varchar(50) DEFAULT NULL,
+  assignee_name varchar(100) DEFAULT NULL,
+  assignee_title varchar(80) DEFAULT NULL,
+  actor_objid varchar(50) DEFAULT NULL,
+  actor_name varchar(100) DEFAULT NULL,
+  actor_title varchar(80) DEFAULT NULL,
+  message varchar(255) DEFAULT NULL,
+  signature text,
+  returnedby varchar(100) DEFAULT NULL,
+  PRIMARY KEY (objid)
+) 
+go 
+
+create index ix_refid on rptcertification_task (refid)
+go 
+
+create index ix_assignee_objid on rptcertification_task (assignee_objid)
+go 
+
+alter table rptcertification_task 
+add CONSTRAINT rptcertification_task_ibfk_1 FOREIGN KEY (refid) REFERENCES rptcertification (objid)
+go 

@@ -161,3 +161,29 @@ INSERT IGNORE INTO  `sys_usergroup` (`objid`, `title`, `domain`, `userclass`, `o
 INSERT IGNORE INTO  `sys_usergroup` (`objid`, `title`, `domain`, `userclass`, `orgclass`, `role`) VALUES ('RPT.CERTIFICATION_ISSUER', 'CERTIFICATION_ISSUER', 'RPT', 'usergroup', NULL, 'CERTIFICATION_ISSUER');
 INSERT IGNORE INTO  `sys_usergroup` (`objid`, `title`, `domain`, `userclass`, `orgclass`, `role`) VALUES ('RPT.CERTIFICATION_RELEASER', 'RPT CERTIFICATION_RELEASER', 'RPT', NULL, NULL, 'CERTIFICATION_RELEASER');
 INSERT IGNORE INTO  `sys_usergroup` (`objid`, `title`, `domain`, `userclass`, `orgclass`, `role`) VALUES ('RPT.CERTIFICATION_VERIFIER', 'RPT CERTIFICATION_VERIFIER', 'RPT', NULL, NULL, 'CERTIFICATION_VERIFIER');
+
+alter table rptcertification add taskid varchar(50)
+;
+
+CREATE TABLE `rptcertification_task` (
+  `objid` varchar(50) NOT NULL DEFAULT '',
+  `refid` varchar(50) DEFAULT NULL,
+  `parentprocessid` varchar(50) DEFAULT NULL,
+  `state` varchar(50) DEFAULT NULL,
+  `startdate` datetime DEFAULT NULL,
+  `enddate` datetime DEFAULT NULL,
+  `assignee_objid` varchar(50) DEFAULT NULL,
+  `assignee_name` varchar(100) DEFAULT NULL,
+  `assignee_title` varchar(80) DEFAULT NULL,
+  `actor_objid` varchar(50) DEFAULT NULL,
+  `actor_name` varchar(100) DEFAULT NULL,
+  `actor_title` varchar(80) DEFAULT NULL,
+  `message` varchar(255) DEFAULT NULL,
+  `signature` longtext,
+  `returnedby` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `ix_refid` (`refid`) USING BTREE,
+  KEY `ix_assignee_objid` (`assignee_objid`) USING BTREE,
+  CONSTRAINT `rptcertification_task_ibfk_1` FOREIGN KEY (`refid`) REFERENCES `rptcertification` (`objid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;

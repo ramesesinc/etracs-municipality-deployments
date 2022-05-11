@@ -46,6 +46,8 @@ services:
       - ./dev_modules/treasury:/services/modules/treasury
       - ./dev_modules/_treasury.conf:/apps/etracs25/modules.conf.d/_treasury.conf
 
+      - ./dev_modules/rptis-250404:/services/modules/rptis
+
       ## mounted lib
       - ../../_res/lib/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
       - ../../_res/lib/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
