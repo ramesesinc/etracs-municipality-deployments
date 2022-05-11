@@ -33,7 +33,6 @@ services:
       - ./client/reports:/apps/server/templates
       - ../../_custom/module-client/etracs:/apps/server/templates/custom
 
-
       ## mounted patch folders
       - ./dev_modules/bpls:/services/modules/bpls
       - ./dev_modules/bpls.conf:/apps/etracs25/modules.conf.d/bpls.conf
@@ -47,6 +46,9 @@ services:
       - ./dev_modules/treasury:/services/modules/treasury
       - ./dev_modules/_treasury.conf:/apps/etracs25/modules.conf.d/_treasury.conf
 
+      - ./dev_modules/rptis-250404:/services/modules/rptis
+
       ## mounted lib
       - ../../_res/lib/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
       - ../../_res/lib/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
+      - ../../_res/lib/rameses-fileupload.jar:/apps/server/lib/rameses-fileupload.jar
