@@ -1,0 +1,13 @@
+255.04.04.06
+==========================================================
+
+LANDTAX:
+  - RPTLedger: municipality: sync with province (initial)
+  - REPORT: RPTC: daily period option
+  - REPORT: Delinquency: taxpayer filter support
+  
+ASSESSOR:
+  - Certification: workflow issuance update
+  - Building: Multi-storey support
+  - Viewer: Support pdf and other file formats (open by default app)
+  
