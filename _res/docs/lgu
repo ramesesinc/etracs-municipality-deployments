@@ -1,0 +1,45 @@
+[Docker Server]
+IP  : 192.168.250.33
+User: nong
+Pass: 
+
+
+[DB Access]
+IP   : 192.168.250.33
+User : root
+Pass : 1ctLibmanan@mysql
+
+
+[Webmin]
+URL  : https://192.168.250.33:10000
+User : <Same access of Docker Server>
+Pass : <Same access of Docker Server>
+
+
+[Portainer]
+URL  : http://192.168.250.33:9000
+User : admin
+Pass : p@ssw0rd1234
+
+
+[Samba]
+URL  : \\192.168.250.33
+User : nong
+Pass : p@ssw0rd
+
+
+[DockerHub Images]
+docker pull nginx:latest
+docker pull ramesesinc/mail-server:1.0
+docker pull ramesesinc/notification-server:1.0
+docker pull ramesesinc/node-download-server:0.0.3
+docker pull ramesesinc/queue-server:2.5.02.01
+docker pull ramesesinc/gdx-proxy-server:v004
+docker pull ramesesinc/gdx-client:1.04.03
+docker pull ramesesinc/etracs-web:2.5.02.01
+docker pull ramesesinc/local-epayment-server:2.5.01.02.06
+docker pull ramesesinc/etracs-server-municipality:2.5.04.05.01
+
+
+[GitHub]
+git clone -b camsur-libmanan https://github.com/ramesesinc/etracs-municipality-deployments.git
