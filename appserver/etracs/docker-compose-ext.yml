@@ -7,3 +7,9 @@ services:
          ## this is only a seed mapping, please do not remove
          ## 
          - ../../_custom/.emptydir:/.emptydir
+
+
+         ## mounted RPTIS folder
+         ## 
+         - ./dev_modules/rptis/server:/services/modules/rptis
+         - ./dev_modules/rptis/server.conf:/services/apps/etracs25/modules.conf.d/rptis.conf
