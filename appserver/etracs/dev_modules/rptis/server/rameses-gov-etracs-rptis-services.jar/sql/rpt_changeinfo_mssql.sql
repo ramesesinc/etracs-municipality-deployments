@@ -46,7 +46,7 @@ where objid = $P{faasid}
 
 
 [updateLedgerInfo]
-update rptledger rl, faas_list f, rpu r set 
+update rl set 
     rl.fullpin = f.displaypin,
     rl.tdno = f.tdno,
     rl.cadastrallotno = f.cadastrallotno,
@@ -63,6 +63,7 @@ update rptledger rl, faas_list f, rpu r set
     rl.titleno = f.titleno,
     rl.administrator_name = f.administrator_name,
     rl.blockno = f.blockno
+from rptledger rl, faas_list f, rpu r		
 where rl.faasid = f.objid 
 and f.rpuid = r.objid 
 and f.objid = $P{faasid}
