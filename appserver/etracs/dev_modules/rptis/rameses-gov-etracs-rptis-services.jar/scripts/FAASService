@@ -329,6 +329,7 @@ class FAASService
 		em_faas_previous.find([faasid:faas.objid]).delete()
 		em_faas_backtax.find([faasid:faas.objid]).delete()
 		em_restriction.find([parent_objid:faas.objid]).delete()
+		em_faas_list.find([objid: faas.objid]).delete()
 		em_faas.delete(faas)
 
 		if (faas.txntype.newrpu){
@@ -362,6 +363,13 @@ class FAASService
 	public void deleteFaasById( faasid ) {
 		if (faasid) {
 			self.deleteFaas(self.openFaas([objid:faasid]))
+		}
+	}	
+
+	@ProxyMethod
+	public void onlineDeleteFaasById( faasid ) {
+		if (faasid) {
+			deleteFaas(self.openFaas([objid:faasid]))
 		}
 	}	
 
@@ -651,10 +659,27 @@ class FAASService
 
 	@ProxyMethod
 	public def findSignatory( faas ) {
-		def sig = em_faas_signatory.read(faas)
-		if (!sig) 
-			sig = [appraiser:[:], taxmapper:[:], recommender:[:], approver:[]]
-		return sig
+		def signatories = [appraiser:[:], taxmapper:[:], recommender:[:], approver:[]]
+		def faassignatory = em_faas_signatory.read(faas)
+		if (faassignatory) signatories.putAll(faassignatory)
+		if (!signatories.approver) {
+			def tasks = em_faas_task
+					.select('objid as taskid, state, actor_objid,actor_name,actor_title')
+					.find([refid: faas.objid])
+					.where("state NOT LIKE 'assign%'")
+					.orderBy('startdate')
+					.list()
+			
+			tasks.each{
+				signatories[it.state] = [
+					objid: it.actor.objid,
+					name: it.actor.name,
+					title: it.actor.title,
+					taskid: it.taskid,
+				]
+			}
+		}
+		return signatories
 	}
 
 	@ProxyMethod
@@ -729,7 +754,9 @@ class FAASService
 		def ntdno = tdno
 		if (isHyphenateTdNo()) {
 			ntdno += '-'
-		}
+		} else {
+            ntdno = ntdno.replace('-', '')
+        }
         def key = 'TDNO-' + tdno
         ntdno += seqSvc.getNextFormattedSeriesA( key, seqcount )
         return ntdno
