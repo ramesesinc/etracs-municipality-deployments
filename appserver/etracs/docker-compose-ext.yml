@@ -8,5 +8,9 @@ services:
          ## 
          - ../../_custom/.emptydir:/.emptydir
 
+         ## mounted new updates
+         ## 
+         - ./dev_modules/bpls:/services/modules/bpls
+
          ## retain rptis version 2.5.03.02.01
          - ./dev_modules/rptis:/services/modules/rptis
