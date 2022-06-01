@@ -8,5 +8,8 @@ services:
          ## 
          - ../../_custom/.emptydir:/.emptydir
 
+         ## mounted new updates
+         ## 
+         - ./dev_modules/bpls:/services/modules/bpls
 
          - ./dev_modules/rameses-gov-etracs-rptis-landtax-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-landtax-services.jar
