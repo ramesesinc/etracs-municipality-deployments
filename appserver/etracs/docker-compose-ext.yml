@@ -1,9 +1,12 @@
 version: "3"
 
 services:
+  etracs-server:
+    volumes:
+      ## this is only a seed mapping, please do not remove
+      ##
+      - ../../_custom/.emptydir:/.emptydir
 
-   etracs-server:
-      volumes:
-         ## this is only a seed mapping, please do not remove
-         ## 
-         - ../../_custom/.emptydir:/.emptydir
+      ## DEV_MOUNT: to be remove on next build
+      ##
+      - ./dev_modules/rptis/rameses-gov-etracs-rptis-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-services.jar
