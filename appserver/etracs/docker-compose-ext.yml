@@ -8,6 +8,9 @@ services:
          ## 
          - ../../_custom/.emptydir:/.emptydir
 
+         ## mounted new updates
+         ## 
+         - ./dev_modules/bpls:/services/modules/bpls
 
          ## mounted old RPTIS version from repo "etracs255-server-iln-municipality.git"
          ## 
