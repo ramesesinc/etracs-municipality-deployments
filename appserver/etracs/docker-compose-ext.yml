@@ -8,6 +8,9 @@ services:
          ## 
          - ../../_custom/.emptydir:/.emptydir
 
+         ## mounted new updates
+         ## 
+         - ./dev_modules/bpls:/services/modules/bpls
 
          ## mounted RPTIS - 2.5.02.07.01
          - ./dev_modules/rptis-2.5.02.07.01/server:/services/modules/rptis
