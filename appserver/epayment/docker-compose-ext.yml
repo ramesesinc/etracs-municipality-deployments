@@ -3,5 +3,10 @@ version: "3"
 services:
 
    epayment-server:
-#      volumes:
-#
+      volumes:
+         ## this is only a seed mapping, please do not remove
+         ## 
+         - ../../_custom/.emptydir:/.emptydir
+
+
+         - ../../_res/lib/mysql-connector-java-5.1.46.jar:/apps/server/lib/mysql.jar
