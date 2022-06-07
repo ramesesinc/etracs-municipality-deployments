@@ -1,5 +1,35 @@
 use etracs255_glan;
 
+-- ## 2022-01-17
+
+update 
+  business aa, 
+  (
+    select 
+      b.objid, b.yearstarted as oldyearstarted, 
+      min(a.yearstarted) as newyearstarted
+    from business b, business_application a 
+    where a.business_objid = b.objid 
+    group by b.objid, b.yearstarted 
+    having b.yearstarted <> min(a.yearstarted)
+  )bb 
+set 
+  aa.yearstarted = bb.newyearstarted 
+where 
+  aa.objid = bb.objid 
+; 
+
+update 
+  business_application a, 
+  business b 
+set 
+  a.yearstarted = b.yearstarted 
+where 
+  a.business_objid = b.objid and 
+  a.yearstarted <> b.yearstarted 
+; 
+
+
 -- ## 2022-03-07
 
 delete from sys_wf_transition where processname = 'business_application' and parentid = 'approval' and action = 'submit' 

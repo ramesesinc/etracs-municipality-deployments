@@ -1,3 +1,5 @@
+drop database if exists eor;
+
 create database eor;
 
 use eor; 
