@@ -1097,5 +1097,4 @@ drop table if exists syncdata_item;
 drop table if exists syncdata_org;
 drop table if exists syncdata_pending;
 drop table if exists syncdata;
-drop table if exists txnsignatory;
 
