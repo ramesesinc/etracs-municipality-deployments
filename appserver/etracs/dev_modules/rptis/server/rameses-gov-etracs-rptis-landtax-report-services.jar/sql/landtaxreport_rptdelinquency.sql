@@ -55,6 +55,7 @@ SELECT
 FROM ( 
 	SELECT 
 		rptledgerid, 
+		year,
 		MAX(dtgenerated) AS dtgenerated, 
 		case when year = $P{year} then 'A. CURRENT' else 'B. PREVIOUS' end as revperiod, 
 		MIN(year) AS startyear, 
