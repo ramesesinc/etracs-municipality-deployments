@@ -12,4 +12,6 @@ services:
          ## 
          - ./dev_modules/bpls:/services/modules/bpls
 
-         - ./dev_modules/rameses-gov-etracs-rptis-landtax-services.jar:/services/modules/rptis/rameses-gov-etracs-rptis-landtax-services.jar
+         ## mounted rptis 2.5.04.03.01
+         ## 
+         - ./dev_modules/rptis-2.5.04.03.01/server:/services/modules/rptis
