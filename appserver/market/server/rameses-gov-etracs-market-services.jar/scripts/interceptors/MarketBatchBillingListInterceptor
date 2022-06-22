@@ -1,0 +1,45 @@
+import com.rameses.annotations.*;
+
+class MarketBatchBillingListInterceptor {
+	
+	@DataContext("market_batch_bill")
+	def batchEm;
+
+	//remove search
+	@After(pattern="WorkflowTaskListService.getNodeList", eval="#{  args[0].processname == 'market_batch_bill' }")
+	public void getNodeList(def evt) {
+		def result = evt.result;
+		result.remove( result.find{ it.name == 'search'} );
+	}
+
+	/*
+	@Before(pattern="WorkflowTaskListService.getList", eval="#{  args[0].processname == 'market_batch_bill' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.state ) return;
+		def str = " state = :state";
+		def m = [state: o.node.state ];
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+	*/
+
+	//This will filter the nodes per account type
+	@After( pattern="WorkflowTaskCountService.getCustomNodeListTaskCount", eval="#{ args[0].processname == 'market_batch_bill' }" )
+	public void loadCount(  def evt ) {
+		def p = evt.args[0];
+		def result = evt.result;
+
+		//println "loading " + p;
+		result.addAll( batchEm.getNodeListCount( [billtype: p._tag ] ));
+		//println "result is " + result;
+	}
+
+}

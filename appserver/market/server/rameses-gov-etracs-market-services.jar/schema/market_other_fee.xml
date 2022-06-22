@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="market_other_fee">
+		<field name="objid" primary="true" prefix="MKTOFEE"/>
+		<field name="acctid" />
+		<field name="billscheduleid" />
+		<field name="itemid" />
+		<field name="amount" />
+		<field name="amtpaid" />
+	</element>
+</schema>

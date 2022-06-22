@@ -1,0 +1,25 @@
+<schema>
+	<element tablename="market_compromise">
+		<field name="objid" primary="true" prefix="MKTINST"/>
+		<field name="controlno" />
+		<field name="controldate" />
+		<field name="state" />		
+		<field name="amount"  type="decimal"/>	
+		<field name="creditmemoid" />
+
+		<complex name="account" ref="vw_market_account" jointype="many-to-one" required="true" includefields="acctno,acctname">
+			<key field="acctid" target="objid" />
+		</complex>
+
+		<complex name="bill" ref="vw_market_bill" jointype="many-to-one" required="true" includefields="billno">
+			<key field="billid" target="objid" />
+		</complex>
+
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>
+		<field name="term" type="integer" required="true"/>
+		<field name="tobilldate" type="date"/>
+		<field name="particulars" />
+	</element>
+</schema>

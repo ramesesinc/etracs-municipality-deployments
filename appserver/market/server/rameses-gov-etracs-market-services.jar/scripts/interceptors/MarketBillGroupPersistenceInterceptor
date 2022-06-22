@@ -1,0 +1,61 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class MarketBillGroupPersistenceInterceptor {
+	
+	@DataContext("market_billgroup")
+	def billgrpEm;
+
+	@DataContext("market_billgroup_unit")
+	def billgrpUnitEm;
+
+	@DataContext("vw_market_rental_unit")
+	def unitEm;
+
+	@Service("MarketBatchBillingService")
+	def batchSvc;
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'market_billgroup' && args[0]._action == 'addUnits'  }")
+	public void addUnits( def evt ) {
+		def p = evt.args[0];
+
+		if(!p.objid) throw new Exception("Please include objid in addUnits");
+		if(!p.billtype) throw new Exception("Please include billtype in addUnits");
+		if(!p.units) throw new Exception("Please include units in addUnits");
+
+		p.units.each {
+			def exists = billgrpUnitEm.find([unitid: it.objid, billtype: p.billtype ]).exists();
+			if(!exists) {
+				def r = [:];
+				r.objid = it.objid + "_" + p.billtype;
+				r.billgroupid = p.objid;
+				r.billtype = p.billtype;
+				r.unit = [ objid: it.objid ];
+				r.state = 'ACTIVE';
+				billgrpUnitEm.create( r );
+			}
+		}	
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'market_billgroup' && args[0]._action == 'startBatch'  }")
+	public void startBatch( def evt ) {
+		def p = evt.args[0];
+		def m = [:];
+		m.billgroupid = p.objid;
+		m.billtype = p.billtype;
+		m.year = p.year;
+		m.centerid = p.centerid;
+		m.month = p.month;
+		batchSvc.create( m );
+
+		//update the bill group state;
+		billgrpEm.find( [objid: p.objid ] ).update( [ state: "ACTIVE" ] );
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'market_billgroup' && args[0]._action == 'stopBatch'  }")
+	public void stopBatch( def evt ) {
+		def p = evt.args[0];
+		throw new Exception("stopBatch " + p.objid );
+	}
+
+}

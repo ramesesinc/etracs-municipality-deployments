@@ -1,0 +1,15 @@
+<schema>
+	<element tablename="vw_market_compromise_billitem">
+		<field name="objid" primary="true"/>
+		<field name="billno" />	
+		<field name="year" />
+		<field name="month" />
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex> 
+		<field name="amount" type="decimal"/>
+		<field name="compromiseid" />
+		<field name="billdate" />
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month Name"/>
+	</element>
+</schema>

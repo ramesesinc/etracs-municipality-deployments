@@ -1,0 +1,18 @@
+<schema>
+	<element tablename="vw_market_recurringfee">
+		<field name="objid" primary="true" />
+		<field name="acctid" required="true" />
+		
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>		
+		<field name="amount" type="decimal"/>
+		<field name="recurtype" required="true" />
+		<field name="description" />
+		<field name="billscheduleid" />
+		<field name="billdate" />
+		<field name="year" />
+		<field name="month" />
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+	</element>
+</schema>

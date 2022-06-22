@@ -1,0 +1,22 @@
+<schema>
+	<element tablename="market_rental_unit">
+		<field name="objid" primary="true" prefix="MKTRUNIT"/>
+		<field name="state" required="true"/>
+		
+		<field name="code" searchable="true" indexed="true"/>
+		<field name="unittype" />
+		<field name="indexno" required="true" type="integer"/>
+		<field name="areasqm" required="true"/>
+		
+		<complex name="center" ref="market_center" jointype="many-to-one" includefields="objid,name">
+			<key field="centerid" target="objid" />
+		</complex>	
+
+		<complex name="orgunit" ref="market_orgunit" jointype="many-to-one" required="true" includefields="objid,name,title,fullpath">
+			<key field="orgunitid" target="objid" />
+		</complex>	
+
+		<field name="currentacctid" />
+		
+	</element>
+</schema>

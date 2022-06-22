@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="market_penalty_billitem" extends="market_abstract_billitem">
+		<field name="objid" primary="true" prefix="MKTPNLTYBILLITM"/>
+		<field name="billdate" type="date" required="true"/>
+		<field name="billitemrefid" required="true"/>
+		<field name="type" required="true"/>
+	</element>
+</schema>

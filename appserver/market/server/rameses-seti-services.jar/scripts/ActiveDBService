@@ -1,0 +1,25 @@
+import com.rameses.annotations.*
+
+class ActiveDBService {
+
+	@ActiveDB(dynamic=true)
+	def activeDB;
+
+
+	@ProxyMethod
+	public def execute( def o ) {
+		if(!o.methodName ) throw new Exception("methodName required in ActiveDBService");
+		if(!o._schemaname ) throw new Exception("_schemaname required in ActiveDBService");
+
+		def em = activeDB.lookup( "main", o._schemaname );
+		if( o.params ) {
+			return em.getEntityManager().invokeSqlMethod(o.methodName, [o.params] ); 
+		}
+		else {
+			return em.getEntityManager().invokeSqlMethod(o.methodName, null);
+		}
+	}
+
+
+
+}

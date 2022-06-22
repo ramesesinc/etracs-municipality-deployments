@@ -1,0 +1,19 @@
+<schema adapter="wfdb">
+
+	<element tablename="sys_wf_eventaction">
+		<field name="processname" primary="true"/>
+		<field name="name"  primary="true"/>
+		<field name="eventtype" />
+		<field name="index" />
+		<field name="nodename" />
+		<field name="transitionto" />
+		<field name="scriptname" />
+		<field name="method" />
+		<field name="params"/>
+		<field name="retval"/>
+		<field name="active" type="integer"/>
+	</element>	
+
+</schema>	
+
+

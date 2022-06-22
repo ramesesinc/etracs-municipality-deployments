@@ -1,0 +1,38 @@
+<schema>
+	<element tablename="vw_market_batch_bill">
+		<field name="objid" primary="true" visible="true" searchable="true" indexed="true" caption="Batch ID" />
+		<field name="billgroupid" indexed="true"  caption="Group" />
+		<field name="billscheduleid" />
+		<field name="billtype" />
+		<field name="batchdate" />	
+		<field name="taskid" />
+		<field name="procstate" type="integer" />
+		
+		<field name="task_state" />
+		<field name="task_dtcreated" />
+		<field name="task_startdate" />
+		<field name="task_enddate" />
+		<field name="task_assignee_objid" />
+		<field name="task_assignee_name" />
+		<field name="task_actor_objid" />
+		<field name="task_actor_name" />
+		<field name="task_title" />
+		<field name="task_tracktime" />
+
+		<field name="year" caption="Year" type="integer"/>
+		<field name="month" caption="Month" type="integer"/>
+		<field name="fromdate" caption="From Date" type="date"/>
+		<field name="todate" caption="To Date" type="date"/>
+		<field name="billdate" caption="Bill Date" type="date"/>
+		<field name="discdate" caption="Disc Date" type="date"/>
+		<field name="duedate" caption="Due Date" type="date"/>		
+		<field name="expirydate" caption="Expiry Date" type="date"/>
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+
+		<field name="totalcount" />
+		<field name="counter" />
+		
+		<field name="autopost" type="integer"/>
+		<field name="autogenerate" type="integer"/>
+	</element>
+</schema>

@@ -1,0 +1,5 @@
+<schema>
+	<element tablename="market_rental_unit_type">
+		<field name="objid" primary="true" visible="true" caption="Name"/>
+	</element>
+</schema>

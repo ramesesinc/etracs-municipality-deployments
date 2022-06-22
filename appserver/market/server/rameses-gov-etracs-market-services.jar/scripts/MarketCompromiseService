@@ -1,0 +1,147 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+
+class MarketCompromiseService {
+	
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("MarketBillingProcessService")
+	def billProcSvc;
+
+	@Service("MarketBillingService")
+	def billingSvc;
+
+	@DataContext("vw_market_bill")
+	def vwBillEm;
+
+	@DataContext("market_bill")
+	def billEm;
+
+	@DataContext("market_compromise")
+	def compromiseEm;
+
+	@DataContext("market_billitem")
+	def billItemEm;
+
+	@DataContext("market_penalty_billitem")
+	def penaltybillItemEm;
+
+	@DataContext("market_abstract_billitem")
+	def abstractBillItem;
+
+	@DataContext("market_payment")
+	def pmtEm;
+
+	@DataContext("market_payment_bill")
+	def pmtBillEm;
+
+	@DataContext("market_payment_item")
+	def pmtItemEm;
+
+
+	@ProxyMethod
+	public def getBillAmount( def o ) {
+		if(!o.billid) throw new Exception("billid is required in MarketCompromiseService.getBillAmount");
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+		def billitems = billingSvc.getBillItems( [billid: bill.objid] );
+		
+		if( !o.tobilldate ) {
+			o.tobilldate = 	bill.billdate;
+		}
+		else {
+			def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			o.tobilldate = df.parse( o.tobilldate );
+		}
+
+		def amt = NumberUtil.round(billitems.findAll{ it.txndate <= o.tobilldate }.sum{ it.balance })
+		return [amount: amt ];
+	}
+
+	@ProxyMethod
+	public def approve( def o ) {
+		if(!o.objid) throw new Exception("objid is required in MarketCompromiseService.post");
+
+		def comp = compromiseEm.find( [objid: o.objid ] ).first();
+		if(!comp) throw new Exception("compromise not found in MarketCompromiseService.post");
+		o.billid = comp.billid;
+		o.amount = comp.amount;
+
+		def bill = billEm.find( [objid: o.billid ] ).first();
+		if(bill.state == 'CLOSED') throw new Exception("Bill is already closed. Please create another compromise");
+
+		//test if amount has not changed. 
+		def billitems = billingSvc.getBillItems( [billid: bill.objid] );
+		def bamt = NumberUtil.round(billitems.findAll{ it.txndate <= comp.tobilldate }.sum{ it.balance });
+
+		if( o.amount != bamt )
+			throw new Exception("Bill amount is not equal to compromise amount. Bill may have changed. Please create another compromise");
+
+		def dt = dateSvc.getServerDate();
+		def params = [billid: o.billid, txndate: dt, reftype: "compromise", refid: o.objid, refno:comp.controlno, txnmode: "ONLINE", amtpaid: o.amount];	
+
+		def pmt = billProcSvc.applyCredits( params );
+		billEm.updateTotalPayment( [billid: o.billid ] );
+			
+		compromiseEm.find( [objid: o.objid ] ).update( [state: "POSTED", creditmemoid: pmt.objid ] );
+		return [state: "POSTED" ];
+	}
+
+	//this should reverse the compromise system
+	@ProxyMethod
+	public def unpost( def o ) {
+		def im = compromiseEm.find( [objid: o.objid ] ).first();
+		return im;
+		if( im.amtbilled > 0 )   throw new Exception("This cannot be unposted because the amount has already been billed");
+
+		throw new Exception("stop it");
+
+		def p = [refid: o.objid ];
+		billProcSvc.voidPostCredit( p );
+		compromiseEm.find( [objid: o.objid ] ).update( [state: "OPEN"] );
+	}
+
+
+	@ProxyMethod
+	public void loadBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in MarketCompromiseService.loadBillItems");
+		if(!o.acctid) throw new Exception("acctid is required in MarketCompromiseService.loadBillItems");
+		if(!o.year) throw new Exception("year is required in MarketCompromiseService.loadBillItems");
+		if(!o.month) throw new Exception("month is required in MarketCompromiseService.loadBillItems");
+		if(!o.billdate) throw new Exception("billdate is required in MarketCompromiseService.loadBillItems");
+
+		
+		def instItems = compromiseEm.find( [acctid: o.acctid ] ).where(" state = 'POSTED' ").list();
+		instItems.each { inst->
+			//get amt billed
+			def amtbilled = billItemEm.find( [compromiseid: inst.objid ]).where(" forwarded=0 ").select("c:{SUM(amount)}").val();
+			if(amtbilled==null) amtbilled = 0;
+			if(amtbilled >= inst.amount ) return;  
+
+			def iamt = NumberUtil.round( inst.amount / inst.term );
+
+			def testTerm = (int) (amtbilled / iamt );
+			if( testTerm == (inst.term-1) ) {
+				iamt =  NumberUtil.round( inst.amount - amtbilled );
+			}  
+			def m = [:];
+			m.billid = o.billid;
+			m.item = [objid: inst.itemid];
+			m.amount = iamt;
+			m.amtpaid = 0;
+			m.auto = 1;
+			m.forwarded = 0;
+			m.year = o.year;
+			m.month = o.month;
+			m.billdate = o.billdate;
+			m.uid = inst.itemid + "_" + inst.objid;	
+			m.compromiseid = inst.objid;
+			billItemEm.create( m );
+		}
+	}
+	
+
+
+}

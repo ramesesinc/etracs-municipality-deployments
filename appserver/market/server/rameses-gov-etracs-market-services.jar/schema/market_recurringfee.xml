@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="market_recurringfee">
+		<field name="objid" primary="true" prefix="MKTRECURFEE"/>
+		<field name="acctid" required="true" />
+		
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>		
+		<field name="amount" type="decimal"/>
+		<field name="recurtype" required="true" />
+		<field name="description" />
+
+	</element>
+</schema>

@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="market_batch_bill_error">
+		<field name="objid" primary="true" prefix="MKTBATBILLERR"/>
+		<field name="batchid" required="true" />
+		<complex name="account" ref="vw_market_account" jointype="many-to-one" required="true" includefields="acctno,acctname,unitno,orgunit.name,center.name"> 
+			<key field="acctid" target="objid"/>
+		</complex>	
+		<field name="message" required="true" />
+	</element>
+</schema>

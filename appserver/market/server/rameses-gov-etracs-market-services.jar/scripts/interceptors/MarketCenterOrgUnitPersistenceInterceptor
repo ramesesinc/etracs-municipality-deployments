@@ -1,0 +1,144 @@
+import com.rameses.annotations.*;
+
+class MarketCenterOrgUnitPersistenceInterceptor {
+
+	@DataContext("market_orgunit")
+	def orgUnitEm;
+
+	@After(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_center' }")
+	public void afterCreateCenter(def evt) {
+		def p = evt.args[0];
+		def result = evt.result;
+		def ou = [:];
+		ou.objid = result.objid;
+		ou.centerid = result.objid;	
+		ou.name = result.name;	
+		ou.description = result.description;
+		ou.fullpath = result.name;
+		ou.uid = ou.fullpath.hashCode(); 
+		ou.type = [objid: 'ROOT'];
+		ou.leaf = 0;
+		ou.hasunits = 0;
+		ou.leftindex = 1;
+		ou.rightindex = 2;
+		orgUnitEm.create( ou );
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'market_center' }")
+	public void beforeRemove(def evt) {
+		def p = evt.args[0];
+		orgUnitEm.find( [objid: p.objid ]).delete();
+	}
+
+	@After(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'market_center' }")
+	public void afterUpdate(def evt) {
+		def result = evt.result;
+		def fpath = result.name;
+		def uid = fpath.hashCode();
+		orgUnitEm.find( [objid: result.objid ]).update( [name:result.name, description: result.description, fullpath: fpath, uid: uid ] );
+		reindex( result );
+	}
+
+	private void reindex( def p ) {
+		def stack = new Stack();
+		int idx = 1;
+
+		def root = orgUnitEm.find( [objid: p.objid] ).first();
+		stack.push( [objid: root.objid, leftindex: (idx++) ] );
+		idx = scanChildren( stack, root.objid, idx );
+		def r = stack.pop();
+		r.rightindex = (idx++);
+		orgUnitEm.find([objid: r.objid ]).update([leftindex:r.leftindex, rightindex: r.rightindex]);
+
+		//rebuild full path
+		def list = orgUnitEm.find( [centerid:  p.objid ] ).where("NOT(parentid IS NULL)").list();
+		list.each { rr->
+			def ol = orgUnitEm.find( [centerid: p.objid] ).select("name").where( "leftindex <= :li AND rightindex >= :ri", [li: rr.leftindex, ri: rr.rightindex] ).orderBy("leftindex").list();	
+			def fpath = ol*.name.join("/");
+			def uid = fpath.hashCode();
+			orgUnitEm.find([objid: rr.objid ]).update( [fullpath: fpath, uid: uid ]);
+		}
+	}
+
+	private int scanChildren( def stack, def objid, int idx ) {
+		def items = orgUnitEm.find( [parentid: objid] ).orderBy("leftindex").list();
+		items.each { v->
+			stack.push( [objid: v.objid, leftindex: (idx++) ]  );
+			idx = scanChildren( stack, v.objid, idx );
+			def r = stack.pop();
+			r.rightindex = (idx++);
+			orgUnitEm.find([objid: r.objid ]).update([leftindex:r.leftindex, rightindex: r.rightindex]);
+		}
+		return idx;
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'market_center' && args[0]._action == 'reindex'  }")
+	public void onReindex( def evt ) {
+		def p = evt.args[0];
+		reindex(p);
+	}
+	
+	/********************
+	* market org unit
+	********************/
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_orgunit' }")
+	public void beforeCreateOrgunit(def evt) {
+		def p = evt.args[0];
+		
+		//we need to update the existing tree first before adding the new entry
+		def parent = orgUnitEm.find( [objid: p.parentid] ).first();
+		def idx = parent.rightindex;
+		orgUnitEm.find( [centerid: p.centerid ] ).where( "leftindex >= :idx", [idx:idx] ).update( [leftindex: "{leftindex + 2}" ]);
+		orgUnitEm.find( [centerid: p.centerid ] ).where( "rightindex >= :idx", [idx:idx] ).update( [rightindex: "{rightindex + 2}" ]);
+		p.leftindex = idx;
+		p.rightindex = p.leftindex + 1;
+		p.typeid = p.type?.objid;
+
+		def ol = orgUnitEm.find( [centerid: p.centerid ]).where( "leftindex < :li AND rightindex > :ri", [li:p.leftindex, ri:p.rightindex]).select("name").orderBy("leftindex").list();
+		p.fullpath = ol*.name.join("/") + "/" + p.name;
+		p.uid = p.fullpath.hashCode();
+	}
+
+	@Before(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'market_orgunit' }")
+	public void beforeUpdateOrgunit(def evt) {
+		def p = evt.args[0];
+		def ol = orgUnitEm.find( [centerid: p.centerid ]).where( "leftindex < :li AND rightindex > :ri", [li:p.leftindex, ri:p.rightindex]).select("name").orderBy("leftindex").list();
+		p.fullpath = ol*.name.join("/") + "/" + p.name;
+		p.uid = p.fullpath.hashCode();
+	}
+
+	@After(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'market_orgunit' }")
+	public void afterUpdateOrgunit(def evt) {
+		def p = evt.args[0];
+		def list = orgUnitEm.find( [centerid:  p.centerid ] ).where("leftindex > :li AND rightindex < :ri", [li: p.leftindex, ri: p.rightindex]).list();
+		list.each { rr->
+			def ol = orgUnitEm.find( [centerid: p.centerid] ).select("name").where( "leftindex <= :li AND rightindex >= :ri", [li: rr.leftindex, ri: rr.rightindex] ).orderBy("leftindex").list();
+			def fpath = ol*.name.join("/");
+			def uid = fpath.hashCode();
+			orgUnitEm.find([objid: rr.objid ]).update( [fullpath: fpath, uid: uid ]);
+		}
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'market_orgunit' }")
+	public void beforeRemoveOrgunit(def evt) {
+		def p = evt.args[0];
+		def ou = orgUnitEm.find( [objid: p.objid] ).first();
+		p.centerid = ou.centerid;
+
+		orgUnitEm.find( [centerid: ou.centerid ] ).where( "leftindex > :ldx AND rightindex < :rdx", [ldx:ou.leftindex, rdx:ou.rightindex] ).delete();
+		/*
+		def idx = ou.leftindex;
+		int diff = ou.rightindex - ou.leftindex + 1;
+		orgUnitEm.find( [centerid: ou.centerid ] ).where( "leftindex >= :idx", [idx:idx] ).update( [leftindex: "{leftindex - :diff}"], [diff:diff] );
+		orgUnitEm.find( [centerid: ou.centerid ] ).where( "rightindex >= :idx", [idx:idx] ).update( [rightindex: "{rightindex - :diff}"], [diff:diff] );
+		*/
+
+	}
+
+	@After(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'market_orgunit' }")
+	public void afterRemoveOrgunit(def evt) {
+		def p = evt.args[0];
+		reindex( [objid: p.centerid] );
+	}
+
+}

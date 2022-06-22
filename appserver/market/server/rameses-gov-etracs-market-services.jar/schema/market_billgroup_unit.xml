@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="market_billgroup_unit">
+		<field name="objid" primary="true"/>
+		<field name="billgroupid" required="true"/>
+		<field name="billtype" required="true"/>
+		<field name="state" />
+		<complex name="unit" ref="vw_market_rental_unit" jointype="many-to-one" includefields="objid,code,account.*,indexno,center.name,orgunit.name">
+			<key field="unitid" target="objid" />
+		</complex> 
+	</element>
+</schema>

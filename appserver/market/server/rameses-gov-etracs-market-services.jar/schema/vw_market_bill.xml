@@ -1,0 +1,47 @@
+<schema>
+	<element tablename="vw_market_bill">
+		<field name="objid" primary="true"/>
+		<field name="billno" caption="Bill No"  searchable="true"/>
+		<field name="unitno" caption="Unit No" searchable="true"/>
+		<field name="acctno" caption="Acct No" searchable="true"/>
+		<field name="acctname" caption="Acct Name" searchable="true"/>
+
+		<field name="billdate" />
+		<field name="lasttxndate" />
+		<field name="validitydate" />
+		<field name="acctid" />
+		<field name="state" />
+		<field name="remarks" />
+		<field name="balanceforward" />
+		<field name="totalpayment" />
+		<field name="interest" />
+		<field name="surcharge" />
+		<field name="amount" />
+		<field name="discount" />
+		<field name="txnmode" />
+		<field name="hold" />
+		<field name="uid" />
+		<field name="year" />
+		<field name="month" />
+		<field name="fromdate" />
+		<field name="todate" />
+		<field name="duedate" />
+		<field name="expirydate" />
+		
+		<field name="billtype" />
+		<field name="billgroupid" />
+
+		<field name="orgunit_name" />
+		<field name="orgunit_fullpath" />
+		<field name="center_name" />
+
+		<field name="owner_objid" />
+		<field name="owner_name" />
+
+		<field name="balance" type="decimal" />
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+	</element>
+</schema>
+
+
+

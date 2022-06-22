@@ -1,0 +1,114 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+
+class MarketBatchBillingService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@Service("MarketBillScheduleService")
+    def billScheduleSvc;
+
+	@Service("MarketBillingService")
+	def billSvc;
+
+	@DataContext("market_batch_bill")
+	def batchEm;
+
+	@DataContext("vw_market_batch_bill")
+	def vwBatchEm;
+
+	@DataContext("market_batch_bill_error")
+	def batchErrEm;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_billgroup_unit")
+	def billGrpUnitEm;
+
+	@DataContext("vw_market_bill")
+	def vwBillEm;
+
+	@DataContext(dynamic=true)
+	def dbEm;
+
+	
+	@ProxyMethod
+	public def getExpiredBatchBills() {
+		return vwBatchEm.where( " task.state = 'posted' AND expirydate < NOW() AND autogenerate = 1" ).list();
+	}
+
+	@ProxyMethod
+	public def getBatchBillsForProcessing() {
+		return vwBatchEm.where( " procstate=1 ").list();
+	}
+
+	@ProxyMethod
+	public void startBatchRun( def o ) {
+		batchEm.find( [objid: o.objid ] ).update( [procstate: 2] );
+		def billEm = dbEm.lookup("market_" + o.billtype.toLowerCase() + "_bill");
+		def itm = billEm.findAccountListCount([batchid: o.objid ]);
+		batchEm.find( [objid: o.objid ]).update( [ totalcount: itm.itemcount, counter: 0 ] );
+		batchErrEm.find( [batchid: o.objid ] ).delete();
+		println "start batch run " + itm.itemcount;
+	}
+
+	@ProxyMethod
+	public def getBatchAccountList( def o ) {
+		def billEm = dbEm.lookup("market_" + o.billtype.toLowerCase() + "_bill");
+		return billEm.getUnprocessedAccountList( [batchid: o.objid ] );
+	}
+
+	@ProxyMethod
+	public void endBatchRun(def o) {
+		batchEm.find( [objid: o.objid ]).update( [procstate: 0, counter: "{totalcount}"] );
+		//after updating status we need to fire the worklfow to move to next step
+		def m = [processname: "market_batch_bill"];
+		m.refid = o.objid;
+		wfSvc.signal(m);
+	}
+
+	@ProxyMethod
+	public def getStatusInfo( def o ) {
+		def batch = vwBatchEm.find( [objid: o.objid ]).first();
+		return [procstate: batch.procstate, counter: batch.counter, totalcount: batch.totalcount ];
+	}
+	
+	@ProxyMethod
+	public void addNewBill( def batch ) {
+		try {
+			def b = [:];
+			b.batchid = batch.objid;
+			b.acctid = batch.acctid;
+			b.year = batch.year;
+			b.month = batch.month;
+			b.billtype = batch.billtype;
+			if(batch.autopost ) b.autopost = 1;
+			if(!vwBillEm.find( [acctid: b.acctid, billtype: b.billtype, year: b.year, month: b.month ] ).exists() ) {
+				billSvc.create( b );
+			}
+		}
+		catch(ex) {
+			def exMgr = new ExceptionManager();
+			def err = [:];
+			err.batchid = batch.objid;
+			err.account = [objid: batch.acctid];
+			err.message = exMgr.getOriginal(ex).message;
+			if(!err.message ) err.message = "Unknown error";
+			batchErrEm.create( err );
+		}
+		batchEm.find( [objid: batch.objid ] ).update( [counter: "{counter + 1}"] );
+	}
+
+	@ProxyMethod
+	public def getInfo( def o ) {
+		return batchEm.find( [ objid: o.batchid ] ).first();	
+	}
+
+
+}

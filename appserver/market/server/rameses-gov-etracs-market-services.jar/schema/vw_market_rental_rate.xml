@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="vw_market_rental_rate">
+		<field name="objid" primary="true"/>
+
+		<!-- not required. required only for history purposes -->
+		<field name="unitid" />
+		<field name="rate" required="true" caption="Rate"/>
+		<field name="ratetype" required="true" caption="Rate Type"/>
+		<field name="effectivedate" required="true" caption="Effective Date"/>
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated" />
+		<field name="reason" />
+
+		<field name="unitno" searchable="true"/>
+		<field name="batchid" />
+		<field name="center_name" searchable="true"/>
+		<field name="orgunit_name" searchable="true"/>
+		<field name="orgunit_fullpath" searchable="true"/>
+	</element>
+</schema>

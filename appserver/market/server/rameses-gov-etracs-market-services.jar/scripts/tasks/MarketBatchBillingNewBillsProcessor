@@ -1,0 +1,70 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import java.util.concurrent.*;
+import market.util.*;
+
+//This scheduler looks batches in processing mode and create bills per each 
+class MarketBatchBillingNewBillsProcessor {
+
+    @XConnection("market")
+	def conn;
+
+	@XConnection('socketio')
+    def socketio;
+
+	boolean processing = false;
+
+	@Schedule( interval=30, timeUnit="SECONDS")
+	public void fetchBatch( def tsk ) {
+		if( processing == true ) return;
+
+		def mainBatchSvc = new MarketBatchBillServiceDelegate( conn.conf );
+
+		def batchList = mainBatchSvc.getBatchBillsForProcessing();
+		if(  batchList ) {
+			processing = true;
+
+			println "START BATCH PROCESS FOR NEW BILLS ...";
+			ExecutorService executor = Executors.newFixedThreadPool(100);
+			for(batch in batchList) {
+				def runner = {
+					try {
+						def batchSvc = new MarketBatchBillServiceDelegate( conn.conf );
+						batchSvc.startBatchRun( batch );
+						def acctList = batchSvc.getBatchAccountList( batch );
+						acctList.each { acct->
+							batch.acctid = acct.acctid;
+							batchSvc.addNewBill( batch );
+							socketio.send( "market_batch_bill_process", [batchid: batch.objid ] );	
+							Thread.sleep(200);
+						}	
+						//final signal to complete the batch run
+						batchSvc.endBatchRun( batch );
+						Thread.sleep(100);
+						socketio.send( "market_batch_bill_process", [batchid: batch.objid ] );	
+					}
+					catch(e) {
+						e.printStackTrace();
+					}
+				} as Runnable;
+				executor.submit( runner );	
+			}
+
+			executor.shutdown();
+		    try {
+		    	if (!executor.awaitTermination(1, TimeUnit.DAYS )) {
+		            executor.shutdownNow();
+		        }
+		    } catch (InterruptedException ex) {
+		    	executor.shutdownNow();
+		        Thread.currentThread().interrupt();
+		    }
+			println "finished processing batch"; 
+
+			processing = false;
+		}	
+	}
+
+
+
+}

@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="sys_report_def">
+		<field name="objid" primary="true"/>
+		<field name="title" />
+		<field name="category" />
+		<field name="template" />
+		<field name="reportheader" />
+		<field name="reportid" />
+		<field name="role" />
+		<field name="sortindex" />
+		<field name="statement" />
+	</element>
+</schema>

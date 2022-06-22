@@ -1,0 +1,115 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import java.text.*;
+
+class MarketBatchRentalRatePersistenceInterceptor {
+	
+	@DataContext("market_rental_rate")
+	def rentalRateEm;
+
+	@DataContext("market_batch_rental_rate")
+	def batchRentalRateEm;
+
+	@DataContext("market_rental_unit")
+	def unitEm;
+
+	@Service("MarketControlnoService")
+	def controlNoSvc;
+
+	@Service("DateService")
+	def dateSvc;
+	
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_batch_rental_rate' }")
+	public void beforeCreate(def evt) {
+		def o = evt.args[0];
+		o.objid = controlNoSvc.getNextNo( [varname: "market_batch_rental_rate_no"] );
+	}	
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'market_batch_rental_rate' }")
+	public void beforeRemove(def evt) {
+		def o = evt.args[0];
+		def st = batchRentalRateEm.find( [objid: o.objid] ).select("state").val();
+		rentalRateEm.find( [batchid: o.objid] ).delete();
+	}	
+
+	@Before(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'market_batch_rental_rate' && args[0]._action == 'deploy' }")
+	public void beforePost(def evt) {
+		def o = evt.args[0];
+		def batch = batchRentalRateEm.find( [objid: o.objid ] ).first();
+		if( batch.frequency == 1 && batch.nextdate == null ) {
+			def nextdate = DateFunc.getMonthAdd( batch.startdate, batch.interval );  
+			batchRentalRateEm.find( [objid: o.objid ] ).update( [state: "IDLE", nextdate: nextdate ] );
+			return;
+		}
+
+		def filter = [];
+		def params = [:];
+
+		filter << " centerid = :centerid ";
+		params.centerid = batch.centerid;
+		if( batch.orgunit ) {
+			filter << " orgunit.fullpath LIKE :orgunit ";
+			params.orgunit = batch.orgunit + "%";
+		}
+		if(batch.units ) {
+			if( batch.includeunits == 0 ) {
+				filter << " code NOT IN ('" + batch.units.split(",").join("','") + "')" ;
+			}
+			else if( batch.includeunits == 1 ) {
+				filter << " code IN ('" + batch.units.split(",").join("','") + "')" ;
+			}
+		}
+
+		boolean hasProcessed = false;
+		def unitList = unitEm.where( filter.join(" AND "), params ).list(); 
+		unitList.each {
+			def prevrate = rentalRateEm.find( [unitid: it.objid]).where("effectivedate <= :edate", [edate: batch.startdate] ).orderBy("effectivedate DESC").first();
+			if(prevrate!=null && prevrate.effectivedate == batch.startdate ) return;
+			if(batch.fixed!=1 && prevrate==null) return;
+			hasProcessed = true;
+
+			def ru = [:];
+			ru.unitid = it.objid;
+			ru.batchid = batch.objid;
+			if( batch.fixed == 1 ) {
+				ru.ratetype = batch.ratetype;  
+				ru.rate = batch.rate;
+			}
+			else {
+				//find the latest current date
+				ru.rate = prevrate.rate * (1 + (batch.rate/100)  );
+				ru.ratetype = prevrate.ratetype;
+			}
+			ru.effectivedate = batch.startdate;
+			ru.reason = batch.particulars;
+			ru.dtcreated = batch.dtcreated;
+			ru.createdby = batch.createdby;
+			rentalRateEm.create( ru );
+		}
+		if(!hasProcessed) throw new Exception("There are no units processed for this batch.");
+		batchRentalRateEm.find( [objid: o.objid] ).update( [state: "CLOSED", nextdate: null ] );
+
+		if( batch.frequency == 1  ) {
+			if( batch.enddate!=null && batch.enddate <= batch.nextdate ) return;
+			
+			//create a new record copying everything except batch
+			def arr = batch.objid.split("-"); 
+			def iter = 1;
+			if(arr.length>1) {
+				iter = arr[1].toInteger()+1; 
+			}
+
+			def rb = [:];
+			rb.putAll(batch);
+			rb.objid = arr[0] + "-" + String.format( "%06d", iter );
+			rb.startdate = batch.nextdate;
+			rb.nextdate = DateFunc.getMonthAdd( rb.startdate, batch.interval );
+			rb.state = "IDLE";
+			batchRentalRateEm.create( rb ); 
+		}
+
+
+	}
+
+
+}

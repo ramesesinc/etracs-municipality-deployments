@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="market_center">
+		<field name="objid" primary="true" prefix="MKTCTR"/>
+		<field name="name" required="true"/>
+		<field name="title" />
+		
+		<field name="address_text" />
+		<field name="address_unitno" />
+		<field name="address_bldgno" />
+		<field name="address_bldgname" />
+		<field name="address_street" />
+		<field name="address_subdivision" />
+		<field name="address_barangay_objid" />
+		<field name="address_barangay_name" />
+		<field name="address_citymunicipality" />
+		<field name="address_province" />
+		<field name="contactinfo" />
+
+		<field name="controlcode" />
+	</element>
+</schema>

@@ -1,0 +1,79 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class MarketChangePersistenceInterceptor {
+	
+	@DataContext("market_account_info")
+	def acctInfoEm;
+
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_changeapp")
+	def changeAppEm;
+
+	@DataContext("market_changeapp_task")
+	def changeAppTaskEm;
+
+	@Service("MarketControlnoService")
+	def controlNoSvc;
+
+	@Service("WorkflowTaskService")
+	def wfTaskSvc;
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_changeapp'  }")
+	public void beforeCreate( def evt ) {
+		def p = evt.args[0];
+
+		//check app types
+		if( p.apptype == 'TRANSFER_UNIT') {
+			if( !p.newacctinfo.unit?.objid ) throw new Exception("Please specify a unit to transfer to");
+			p.newacctinfo.unitid = p.newacctinfo.unit.objid;
+			if( p.oldacctinfo.unitid == p.newacctinfo.unitid ) throw new Exception("Please specify a different unit");
+		}
+		else if(p.apptype == 'CHANGE_OWNER') {
+			if( p.newacctinfo.owner?.profileid != null ) {
+				if( p.oldacctinfo.owner?.profileid == p.newacctinfo.owner?.profileid ) {
+					throw new Exception("Please change the profile id. The profile id must be for a different owner");
+				}
+			}
+		}
+		else if( p.apptype == 'CHANGE_PAYMENT_MODE' ) {
+			if(p.oldacctinfo.paymentmode == p.newacctinfo.paymentmode )
+				throw new Exception("Please select another payment mode. It must be different than  the previous");
+		}
+
+		if(!p.appno) {
+			p.appno = controlNoSvc.getNextNo( [varname: "market_changeapp_appno"] );
+		}
+		//we create the account info		
+		def ai = acctInfoEm.create( p.newacctinfo );
+		p.newacctinfoid = ai.objid;
+		p.newacctinfo.objid = ai.objid;
+	}
+
+	@After(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_changeapp'  }")
+	public void afterCreate( def evt ) {
+		def p = evt.args[0];
+		def result = evt.result;
+		def wf = [:];
+		wf.processname ="market_changeapp";
+		wf.refid = p.objid;
+		wfTaskSvc.start(  wf );
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'market_changeapp'  }")
+	public void beforeRemove(def evt) {
+		def p = evt.args[0];
+
+		def app = changeAppEm.find( [objid: p.objid]).first();	
+		if(app.task.state=='end') 
+			throw new Exception("Change App cannot be removed. Task has already ended");
+
+		changeAppEm.find( [objid: app.objid ] ).update( [newacctinfoid: "{NULL}", taskid: "{NULL}"] );
+		changeAppTaskEm.find( [refid: app.objid] ).delete();
+		acctInfoEm.find( [objid: app.newacctinfoid ] ).delete();
+	}
+
+
+}

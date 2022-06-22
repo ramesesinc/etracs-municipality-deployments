@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="market_billgroup">
+		<field name="objid" primary="true" visible="true" searchable="true" indexed="true"/>
+		<field name="description" />
+		<field name="billtype" required="true"/>
+		<field name="state" required="true"/>
+		<field name="batchid"/>
+		<field name="tag"/>
+	</element>
+</schema>

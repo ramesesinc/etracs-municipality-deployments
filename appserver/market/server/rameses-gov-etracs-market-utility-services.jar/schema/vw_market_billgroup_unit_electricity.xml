@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="vw_market_billgroup_unit_electricity">
+		<field name="objid" primary="true"/>
+		<field name="billgroupid" />
+		<field name="code" searchable="true" indexed="true" />
+		<field name="fullpath" searchable="true" indexed="true" />
+	</element>
+</schema>

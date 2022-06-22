@@ -1,0 +1,558 @@
+<?xml version="1.0" encoding="UTF-8"  ?>
+<!-- Created with iReport - A designer for JasperReports -->
+<!DOCTYPE jasperReport PUBLIC "//JasperReports//DTD Report Design//EN" "http://jasperreports.sourceforge.net/dtds/jasperreport.dtd">
+<jasperReport
+		 name="rental_batch_billing"
+
+		 language="groovy"		 columnCount="1"
+		 printOrder="Vertical"
+		 orientation="Portrait"
+		 pageWidth="544"
+		 pageHeight="263"
+		 columnWidth="544"
+		 columnSpacing="0"
+		 leftMargin="0"
+		 rightMargin="0"
+		 topMargin="0"
+		 bottomMargin="0"
+		 whenNoDataType="AllSectionsNoDetail"
+		 isTitleNewPage="false"
+		 isSummaryNewPage="false">
+	<property name="ireport.scriptlethandling" value="0" />
+	<property name="ireport.encoding" value="UTF-8" />
+	<import value="java.util.*" />
+	<import value="net.sf.jasperreports.engine.*" />
+	<import value="net.sf.jasperreports.engine.data.*" />
+
+	<parameter name="ORGNAME" isForPrompting="false" class="java.lang.String"/>
+
+	<field name="acctno" class="java.lang.String"/>
+	<field name="acctname" class="java.lang.String"/>
+	<field name="prevreading" class="java.lang.Number"/>
+	<field name="reading" class="java.lang.Number"/>
+	<field name="volume" class="java.lang.Number"/>
+	<field name="amount" class="java.lang.String"/>
+	<field name="month" class="java.lang.String"/>
+	<field name="year" class="java.lang.String"/>
+	<field name="readingdate" class="java.util.Date"/>
+	<field name="items" class="java.lang.Object"/>
+	<field name="billno" class="java.lang.String"/>
+	<field name="objid" class="java.lang.String"/>
+
+		<background>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</background>
+		<title>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</title>
+		<pageHeader>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</pageHeader>
+		<columnHeader>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</columnHeader>
+		<detail>
+			<band height="251"  isSplitAllowed="true" >
+				<rectangle radius="8" >
+					<reportElement
+						x="278"
+						y="51"
+						width="243"
+						height="63"
+						key="rectangle-3"/>
+					<graphicElement stretchType="NoStretch">
+					<pen lineWidth="0.5" lineStyle="Dashed"/>
+</graphicElement>
+				</rectangle>
+				<rectangle radius="8" >
+					<reportElement
+						x="11"
+						y="150"
+						width="263"
+						height="86"
+						key="rectangle-2"/>
+					<graphicElement stretchType="NoStretch">
+					<pen lineWidth="0.5" lineStyle="Dashed"/>
+</graphicElement>
+				</rectangle>
+				<rectangle radius="8" >
+					<reportElement
+						x="10"
+						y="51"
+						width="263"
+						height="96"
+						key="rectangle-1"/>
+					<graphicElement stretchType="NoStretch">
+					<pen lineWidth="0.5" lineStyle="Dashed"/>
+</graphicElement>
+				</rectangle>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="101"
+						y="67"
+						width="100"
+						height="11"
+						key="textField-1"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{acctno}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="101"
+						y="78"
+						width="168"
+						height="11"
+						key="textField-7"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{acctname}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="115"
+						y="210"
+						width="103"
+						height="11"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<textFieldExpression   class="java.lang.Number"><![CDATA[$F{prevreading}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="115"
+						y="198"
+						width="102"
+						height="11"
+						key="textField-10"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<textFieldExpression   class="java.lang.Number"><![CDATA[$F{reading}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="115"
+						y="221"
+						width="103"
+						height="11"
+						key="textField-11"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<textFieldExpression   class="java.lang.Number"><![CDATA[$F{volume}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="0"
+						y="238"
+						width="544"
+						height="11"
+						key="staticText-2"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Note: This is a computer generated document. No signature is required.]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="20"
+						y="67"
+						width="80"
+						height="11"
+						key="staticText-3"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Account No:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="9"
+						y="51"
+						width="263"
+						height="14"
+						key="staticText-4"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Account Information]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="20"
+						y="78"
+						width="80"
+						height="11"
+						key="staticText-5"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Account Name:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="20"
+						y="88"
+						width="80"
+						height="11"
+						key="staticText-6"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Service Address:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="20"
+						y="104"
+						width="80"
+						height="11"
+						key="staticText-7"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Zone No:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="20"
+						y="117"
+						width="80"
+						height="11"
+						key="staticText-9"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Barangay:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="129"
+						width="80"
+						height="11"
+						key="staticText-10"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Rate Type:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="10"
+						y="150"
+						width="263"
+						height="14"
+						key="staticText-11"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Meter Information]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="163"
+						width="92"
+						height="11"
+						key="staticText-12"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Meter No:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="174"
+						width="92"
+						height="11"
+						key="staticText-13"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Meter Reader:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="186"
+						width="92"
+						height="11"
+						key="staticText-14"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Reading Date:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="198"
+						width="92"
+						height="11"
+						key="staticText-15"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Present Reading:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="210"
+						width="92"
+						height="11"
+						key="staticText-16"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Previous Reading:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="21"
+						y="221"
+						width="92"
+						height="11"
+						key="staticText-17"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Consumption (cu.m):]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="277"
+						y="51"
+						width="243"
+						height="14"
+						key="staticText-19"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Billing Information]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="284"
+						y="67"
+						width="75"
+						height="11"
+						key="staticText-20"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Billing Period:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="421"
+						y="67"
+						width="14"
+						height="11"
+						key="staticText-21"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[to]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="284"
+						y="78"
+						width="85"
+						height="11"
+						key="staticText-22"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Payment Due Date:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="284"
+						y="89"
+						width="85"
+						height="11"
+						key="staticText-23"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Total Amt Due:]]></text>
+				</staticText>
+				<rectangle radius="8" >
+					<reportElement
+						x="278"
+						y="117"
+						width="242"
+						height="119"
+						key="rectangle-4"/>
+					<graphicElement stretchType="NoStretch">
+					<pen lineWidth="0.5" lineStyle="Dashed"/>
+</graphicElement>
+				</rectangle>
+				<staticText>
+					<reportElement
+						x="278"
+						y="117"
+						width="242"
+						height="14"
+						key="staticText-24"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<text><![CDATA[Billing Summary]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="67"
+						y="11"
+						width="194"
+						height="10"
+						key="staticText-33"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font fontName="Courier New" size="7"/>
+					</textElement>
+				<text><![CDATA[City Government of Tagbilaran]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="67"
+						y="20"
+						width="194"
+						height="10"
+						key="staticText-34"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font fontName="Courier New" size="7"/>
+					</textElement>
+				<text><![CDATA[Office of the City Economic Enterprise]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="67"
+						y="29"
+						width="194"
+						height="10"
+						key="staticText-35"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font fontName="Courier New" size="7"/>
+					</textElement>
+				<text><![CDATA[TAGBILARAN WATERWORKS SYSTEM]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="67"
+						y="38"
+						width="194"
+						height="10"
+						key="staticText-36"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font fontName="Courier New" size="7"/>
+					</textElement>
+				<text><![CDATA[TEL No 411-2222 LOCAL 172]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="289"
+						y="31"
+						width="227"
+						height="14"
+						key="staticText-18"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font fontName="Courier New" size="12"/>
+					</textElement>
+				<text><![CDATA[Statement of Account]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="true" pattern="MMM dd yyyy" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="115"
+						y="185"
+						width="106"
+						height="11"
+						key="textField-18"/>
+					<box></box>
+					<textElement>
+						<font fontName="Courier New" size="8"/>
+					</textElement>
+				<textFieldExpression   class="java.util.Date"><![CDATA[$F{readingdate}]]></textFieldExpression>
+				</textField>
+				<subreport  isUsingCache="true">
+					<reportElement
+						x="280"
+						y="130"
+						width="233"
+						height="99"
+						key="subreport-1"
+						isPrintRepeatedValues="false"/>
+					<dataSourceExpression><![CDATA[$F{items}]]></dataSourceExpression>
+					<subreportExpression  class="java.lang.String"><![CDATA["batch_billing_details.jasper"]]></subreportExpression>
+				</subreport>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="293"
+						y="10"
+						width="220"
+						height="20"
+						key="textField"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{billno}]]></textFieldExpression>
+				</textField>
+			</band>
+		</detail>
+		<columnFooter>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</columnFooter>
+		<pageFooter>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</pageFooter>
+		<summary>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</summary>
+</jasperReport>

@@ -1,0 +1,49 @@
+<schema>
+	<element tablename="market_bill">
+		<field name="objid" primary="true" prefix="MKTBILL"/>
+		<field name="prevbillid" />
+		<field name="billno" required="true"/>	
+
+		<!-- bill date may change -->
+		<field name="billdate" type="date" required="true"/>
+
+		<!-- bill types: RENTAL, ELECTRICITY, WATER -->
+		<field name="billtype" required="true"/>
+
+		<field name="lasttxndate" type="date"/>
+		<field name="validitydate" type="date"/>
+		
+		<!-- states: OPEN, POSTED, CLOSED -->
+		<field name="state" required="true"/>
+
+		<field name="acctid" required="true"/>
+		<field name="acctinfoid" required="true"/>
+
+		<field name="remarks" />						
+
+		<!-- this should match the balance of the previous bill -->
+		<field name="balanceforward" required="true" type="decimal"/>
+		
+		<!-- computed sucharge and interest for this bill -->
+		<field name="surcharge" required="true" type="decimal"/>
+		<field name="interest" required="true" type="decimal"/>
+		<field name="amount" required="true" type="decimal" />
+		<field name="discount" required="true" type="decimal" />
+		<field name="totalpayment" required="true" type="decimal"/>
+
+		<field name="balance" type="decimal" expr="(balanceforward + interest + surcharge + amount) - totalpayment - discount"/>
+
+		<field name="txnmode" />
+
+		<!-- hold may have different implementations. for rental if hold, it will not update to the next date-->
+		<field name="hold" />		
+
+		<complex name="billschedule" ref="market_billschedule" jointype="many-to-one" required="true">
+			<key field="billscheduleid" target="objid" /> 		 	
+		</complex>	
+		
+		<field name="batchid" />	
+	</element>
+</schema>
+
+

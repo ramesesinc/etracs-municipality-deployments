@@ -1,0 +1,15 @@
+<schema>
+	<element tablename="market_orgunit">
+		<field name="objid" primary="true" prefix="MKTORGUNIT"/>
+		<field name="centerid" />
+		<field name="parentid" />
+		<field name="name" caption="Name" searchable="true"/>
+		<field name="description" caption="Description"/>
+		<field name="leftindex" type="integer"/>
+		<field name="rightindex" type="integer"/>
+		<field name="fullpath" searchable="true" indexed="true"/>
+
+		<field name="uid" type="integer" />
+
+	</element>
+</schema>

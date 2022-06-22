@@ -1,0 +1,27 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import market.facts.*;
+import treasury.facts.*;
+
+class MarketUtilityConsumptionService {
+	
+
+	@DataContext(dynamic=true)
+	def db;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod
+	public void updateReading( def o ) {
+		if(!o.billid)throw new Exception("billid is required in MarketUtilityConsumptionService.updateReading");
+		if(!o.billtype)throw new Exception("billtype is required in MarketUtilityConsumptionService.updateReading");
+		//after calculating we will also asap update the bill
+
+		def billid = o.remove("billid");
+		def billtype = o.remove("billtype");	
+		def billEm = db.lookup( "market_" + billtype.toLowerCase() + "_bill");
+		billEm.find( [objid: billid] ).update( o );
+	}
+
+}

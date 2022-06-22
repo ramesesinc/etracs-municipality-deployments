@@ -1,0 +1,38 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import java.util.concurrent.atomic.*;
+import market.util.*;
+
+
+// This scheduler looks for posted batch bills that are already expired and creates a new one 
+class MarketBatchBillingRenewExpiredProcessor {
+
+	@XConnection('socketio')
+    def socketio;
+
+ 	@XConnection("market")
+	def conn;
+
+	boolean processing = false;
+
+	@Schedule( interval=60, timeUnit="SECONDS")
+	public void startFetchExpired( def tsk ) {
+		if( processing == true ) {
+			return;
+		}	
+		
+		def mainBatchSvc = new MarketBatchBillServiceDelegate( conn.conf );
+
+		def batchList = mainBatchSvc.getExpiredBatchBills();
+		if(  batchList ) {
+			processing = true;
+			for(b in batchList) {
+				mainBatchSvc.regenerateBatch(b);
+			}
+			processing = false;
+		}
+		
+	}
+
+
+}

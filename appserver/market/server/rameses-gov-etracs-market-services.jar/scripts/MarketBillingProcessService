@@ -1,0 +1,318 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.functions.*;
+import market.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import java.rmi.server.*;
+
+/*****************************************************************
+* Generic service for handling all billing rules
+******************************************************************/
+class MarketBillingProcessService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("market_payment")
+	def pmtEm;
+
+	@DataContext("market_payment_bill")
+	def pmtBillEm;
+
+	@DataContext("market_payment_item")
+	def pmtItem;
+
+	@DataContext(dynamic=true)
+	def dbEm;
+
+	@DataContext("market_billitem")
+	def billItemEm;
+
+	@DataContext("market_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("market_penalty_billitem")
+	def penaltyItemEm;
+
+	@DataContext("market_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("vw_market_bill")
+	def vwBillEm;
+
+	@DataContext("market_bill")
+	def billEm;
+
+	@DataContext("vw_market_account")
+	def vwAcctEm;
+
+	@DataContext(dynamic=true)
+	def dynEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("MarketBillScheduleService")
+	def scheduleSvc;
+
+	@ProxyMethod
+	public def executeRules( def ruleName, def o ) {
+		if(!o.txndate) throw new Exception("txndate is required in MarketBillingProcessService.executeRules")
+
+		def bill = o.bill;
+		def acct = o.acct;
+		def txndate = o.txndate;
+		
+		//find billtype first
+		def billtype = billEm.find([objid: o.billid]).select("billtype").val();
+		if(!billtype) throw new Exception("billtype is not found");
+		def billEm = dynEm.lookup( "vw_market_" + billtype.toLowerCase() + "_bill");
+		if(!bill) bill = billEm.find( [objid: o.billid ] ).first();
+		bill.billtype = billtype.toUpperCase();
+
+		if(!acct) acct = vwAcctEm.find( [objid: bill.acctid ]).first();
+		if(!txndate) txndate = dateSvc.getServerDate();
+
+		def facts = [];
+		facts << new MarketBill( bill );
+		facts << new MarketAccount( acct );
+		facts << new MarketCenter( name: acct.centerid, orgunit: acct.orgunit?.fullpath );
+		facts << new MarketBillSchedule( bill );
+		facts << new TransactionDate( txndate );
+
+		//check if billtype is utility 
+		if( !bill.billtype.matches('RENTAL') ) {
+			def uBillEm = dynEm.lookup( "market_" + bill.billtype.toLowerCase() + "_bill" );
+			def ubill = uBillEm.find( [objid: o.billid ]).first();
+			if(!ubill) throw new Exception("Utility bill " + bill.billtype + " " + o.billid + " not found");
+			if(ubill.volume) {
+				facts << new MarketUtilityConsumption([volume: ubill.volume, billtype: bill.billtype.toUpperCase() ]);
+			}
+		}
+
+		if( o.amtpaid ) {
+			facts << new Payment( amount: o.amtpaid );
+		};
+		//load billitems
+		def pp = [billid: bill.objid, txndate: o.txndate ];
+
+		def penaltyItems = penaltyItemEm.getOpenItems( pp );
+		def billitems = billItemEm.getOpenBillItems( pp );
+
+
+		def smap = [:];
+		def findSked = { xx->
+			def rid = bill.billgroupid +"_"+xx.year+"_"+xx.month;
+			if( !smap.containsKey(rid) ) {
+				smap.put( rid, scheduleSvc.getSchedule( [billgroupid:bill.billgroupid, year:xx.year, month:xx.month] ) );
+			}
+			return smap.get( rid );
+		}
+
+		billitems.each {
+			it.duedate = findSked( it ).duedate;
+			def mb = new MarketBillItem(it);
+			mb.input = true;
+			facts << mb;
+			def pItems = penaltyItems.findAll{ r-> r.billitemrefid == mb.objid };
+			if(pItems) {
+				pItems.each { sb->
+					def rb = (sb.type?.equalsIgnoreCase("SURCHARGE")) ? new SurchargeItem(sb) : new InterestItem(sb);
+					rb.input = true;
+					mb.addSubItem( rb );
+					facts << rb;
+				}	
+			} 
+		};
+		ruleSvc.execute( ruleName, facts, null, null );
+		return facts;
+	}
+
+	@ProxyMethod
+	public void savePayment( def o, def facts ) {
+		def items = [];
+		facts.findAll{ (it instanceof AbstractBillItem) && it.amount > 0 }.each {
+			if( it instanceof CreditBillItem ) {
+				def r = it.toMap();
+				r.billid = o.billid;
+				r.paymentid = o.paymentid;
+				r.auto = true;
+				r.forwarded = 0;
+				r.amount = 0;
+				r.uid = "CR"+new UID();
+				creditItemEm.create(r);
+			}
+			items << [ parentid:o.paymentid, billitemid: it.objid, amount: it.amount ];						
+		};
+		items.each {
+			pmtItem.create( it );
+			abstractBillItemEm.find( [objid: it.billitemid ] ).update( [amtpaid: "{amtpaid + :amt}"], [ amt: it.amount ] );
+		}
+	}
+	
+	public void test( def msg ) {
+		throw new Exception(msg);
+	}
+
+	@ProxyMethod
+	public def applyCredits( def o ) {
+		if(!o.billid) throw new Exception("billid is required in applyCredits");
+		if(!o.txndate) throw new Exception("txndate is required in applyCredits");
+		if(!o.amtpaid ) throw new Exception("amtpaid is required in applyCredits");
+		
+		if(!o.reftype) o.reftype = "creditmemo";
+
+		def facts = executeRules( "marketpayment", o );
+
+		//if the credit amount is equal to the advance payment credit billitem, this means there are no items applied 
+		def creditItem = facts.find{ (it instanceof CreditBillItem) };
+		if( creditItem  && (creditItem.amount == o.amtpaid)) {
+			return; 
+		};
+		
+		def pmt = [:];
+		pmt.reftype = o.reftype;
+		pmt.refid = o.refid;
+		pmt.refdate =  o.txndate;
+		pmt.txnmode = (!o.txnmode) ? "CAPTURE" : o.txnmode;
+		pmt.refno = o.refno;
+		pmt.voided =  0;
+		pmt.amount =  o.amtpaid;
+		pmt = pmtEm.create( pmt );
+
+		def bb = [:];
+		bb.parentid = pmt.objid;
+		bb.billid = o.billid;
+		bb.amount = o.amtpaid;
+		bb = pmtBillEm.create( bb );
+		
+		//we need to close out credit billitems that are open
+		creditItemEm.find( [ billid: o.billid ] ).where("amount = 0").update( [creditmemoid: bb.objid, amount: "{amtpaid}"] );
+
+		def p = [:];
+		p.billid = o.billid;
+		p.txndate = o.txndate;
+		p.amtpaid = o.amtpaid;
+		p.paymentid = bb.objid;
+		savePayment( p, facts );
+
+		//check if there are items posted. If not throw exception so it will reverse all transactions.
+		return pmt;
+	}	
+
+	//This is called when cancelling bills. we will only remove if payment type is post credit. 
+	//Otherwise payment needs to be manually deleted
+	@ProxyMethod
+	public void clearBillPostCredit( def o ) {
+		if(!o.billid) throw new Exception("billid is required in MarketBillingProcessService.removePostCredit");
+		def pcList = pmtBillEm.find([billid: o.billid]).list();
+		pcList.each { b->
+			def pmt = pmtEm.find( [objid: b.parentid ]).first();
+			if(pmt.reftype == "creditmemo") {
+				pmtItem.find([parentid: b.objid ]).delete();
+				pmtBillEm.find( [objid: b.objid ]).delete();
+				pmtEm.find( [objid: pmt.objid ] ).delete();
+			}
+		}
+	}
+
+	@ProxyMethod
+	public def voidPostCredit( def o ) {
+		if(!o.refid) throw new Exception("refid is required in voidPostCredit");
+		
+		//there is only one bill per post credit payment
+		def pbill = pmtBillEm.find( [parentid: o.refid ] ).first();
+
+		//reverse the updated credit billitem
+		creditItemEm.find( [creditmemoid: pbill.objid ] ).update( [ amount: 0 ] );
+		creditItemEm.find( [creditmemoid: pbill.objid ] ).update( [ creditmemoid: "{NULL}" ] );
+		
+		def pmtItems = pmtItem.find( [parentid: pbill.objid ] ).list();
+		pmtItem.find( [parentid: pbill.objid ] ).delete();
+		pmtItems.each {
+			abstractBillItemEm.find( [objid: it.billitemid ] ).update( [amtpaid: "{amtpaid - :amt}" ], [amt: it.amount ] );
+			creditItemEm.find( [objid: it.billitemid ] ).where(" amtpaid = 0 ").delete();
+			penaltyItemEm.find( [objid: it.billitemid ] ).where(" amtpaid = 0 ").delete();
+		}
+		//remove also the billitems. this is separate because we need to remove penalties first before this due to dependencies 
+		pmtItems.each {
+			billItemEm.find( [objid: it.billitemid ] ).where( " amtpaid = 0 " ).delete();		
+		}
+
+		pmtBillEm.find( [objid: pbill.objid]).delete();
+		pmtEm.find( [objid: o.refid] ).delete();
+		billEm.updateBillTotals( [billid: pbill.billid ] );
+	}
+
+	@ProxyMethod
+	public def processBill( def o, boolean include_items, boolean include_penalty ) {
+		def facts = executeRules("marketbilling", o );
+
+		if( include_items ) {
+			facts.findAll{ (it instanceof MarketBillItem) && (it.input == false) }.each {
+				def z = it.toMap();
+				z.billid = o.billid;
+				z.auto = true;
+				z.forwarded = false;
+				billItemEm.create( z );
+			};
+		}
+		
+		if( include_penalty ) {
+			facts.findAll{ (it instanceof BillSubItem) && (it.input == false) }.each {
+				def z = it.toMap();
+				def exists = penaltyItemEm.find( [uid: z.uid] ).exists();
+				if(!exists) {
+					z.billid = o.billid;
+					z.auto = true;
+					z.forwarded = false; 
+					penaltyItemEm.create( z );
+				}
+			};		
+		}
+		billEm.updateBillTotals( [billid: o.billid ] );
+		return facts;	
+	}
+
+	@ProxyMethod
+	public void rebill( def o ) {
+		if(!o.txndate) throw new Exception("Please specify txndate in rebill");
+		if(!o.billid) throw new Exception("Please specify billid in rebill");
+		
+		def sdf = new java.text.SimpleDateFormat("yyyyMMdd");
+		def txndate = o.txndate;
+		
+		//remove unpaid billitems
+		penaltyItemEm.find( [billid: o.billid ] ).where(" billdate >= :bdate AND forwarded <> 1 AND (amtpaid=0) ", [bdate: o.txndate]).delete();
+		billItemEm.find( [billid: o.billid ] ).where("NOT(billdate IS NULL) AND billdate > :bdate AND forwarded <> 1  AND (amtpaid=0)", [bdate: o.txndate]).delete();
+
+		//check if there are credits posted for this bill 
+		def pmtList = pmtEm.getPostCredits(  o );
+		pmtList?.each {
+			voidPostCredit( [refid: it.objid ] );
+		}
+
+		//check first if there is negative balance and apply credits
+		def bal = creditItemEm.find( [billid: o.billid ] ).select(" c:{SUM(amount-amtpaid)}").val()
+		if( bal!=null &&  bal < 0 ) {
+			//check if balance has already been applied. 
+			processBill( o, true, false );
+			applyCredits( [billid: o.billid, txndate: o.txndate, amtpaid: NumberUtil.round( 0 - bal ) ] );	
+		}
+
+		//apply bill now to include penalty
+		def facts = processBill( o, true, true );
+
+		//update next bill validity
+		def bl = facts.find{ it instanceof MarketBill };
+		def u = [lasttxndate: txndate];
+		if(bl.validitydate) u.validitydate = bl.validitydate;
+
+		billEm.find( [objid: o.billid ] ).update( u );
+
+	}
+
+
+}

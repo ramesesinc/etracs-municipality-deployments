@@ -1,0 +1,95 @@
+import com.rameses.annotations.*;
+
+class MarketBatchBillInterceptor {
+	
+	@DataContext("market_batch_bill")
+	def batchEm;
+
+	@DataContext("vw_market_batch_bill")
+	def vwBatchEm;
+
+	@DataContext("market_batch_bill_task")
+	def taskEm;
+
+	@DataContext("market_bill")
+	def billEm;
+
+	@DataContext("market_billgroup")
+	def billGrpEm;
+
+	@Service("MarketBillScheduleService")
+    def billScheduleSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("MarketControlnoService")
+	def controlNoSvc;
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@Env
+	def env;
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_batch_bill'  }")
+	public void beforeCreate(def evt) {
+		def o = evt.args[0];
+		//test if there is an existing prev batch. 
+		
+		if(o.prevbatchid) {
+			def batch = vwBatchEm.find( [objid: o.prevbatchid ]).first();
+			if(!batch) throw new Exception("Previous batch not found");
+			if( batch.task.state != 'posted' ) throw new Exception("Previous batch must be in posted state");
+			//close the previous batch first before proceeding to a new one
+
+			def m = [processname: "market_batch_bill"];
+			m.refid = batch.objid;
+			wfSvc.signal( m );			
+
+			o.autopost = batch.autopost;
+			o.autogenerate = batch.autogenerate;	
+
+			o.billtype = batch.billtype;
+			o.billgroupid = batch.billgroupid;
+			o.year = batch.year;
+			o.month = batch.month + 1;
+			if( o.month > 12 ) {
+				o.month = 1;
+				o.year = o.year + 1;
+			}
+		}
+
+		o.objid = controlNoSvc.getNextNo( [prefix: o.billgroupid, varname: "market_batch_billno" ] );
+		o.billschedule = billScheduleSvc.getSchedule( o );
+		o.procstate = 1;
+		o.totalcount = 0;
+		o.counter = 0;
+		o.batchdate = dateSvc.getServerDate();
+	}
+
+	@After(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_batch_bill'  }")
+	public void afterCreate(def evt) {
+		def p = evt.args[0];
+		def res = evt.result;
+
+		//change state of billgroup if it is active
+		billGrpEm.find( [objid: res.billgroupid ] ).update( [state: "ACTIVE", batchid: res.objid ] );
+
+		def m = [processname: "market_batch_bill"];
+		m.refid = res.objid;
+		wfSvc.start(m);
+	}
+
+
+	//WORKFLOW INTERCPTORS
+	@After(pattern="WorkflowTaskService.signal", eval="#{args[0].processname == 'market_batch_bill'  && args[0].action == 'post' }")
+	public void afterPost(def evt) {
+		def p = evt.args[0];
+		def cnt = billEm.find( [batchid: p.refid ] ).select("c:{COUNT(*)}").where(  "NOT(state = 'POSTED' )").val();
+		if( cnt && cnt > 0  )
+			throw new Exception("There are still unposted bills. All bills must be posted");
+	}
+
+
+}

@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="vw_market_billitem">
+		<field name="objid" primary="true"/>
+		<field name="billid" />	
+		<field name="amount" type="decimal"/>
+		<field name="amtpaid" type="decimal"/>
+		<field name="balance" type="decimal"/>
+
+		<field name="remarks" />
+		<field name="uid" />
+
+		<field name="particulars" />
+		<field name="billdate" />
+		<field name="auto" />
+		<field name="forwarded" />
+
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />		
+		</complex>	
+	</element>
+</schema>

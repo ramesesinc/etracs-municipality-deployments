@@ -1,0 +1,47 @@
+import com.rameses.annotations.*;
+
+class MarketCompromisePersistenceInterceptor {
+	
+
+	@Service("MarketPaymentService")
+	def pmtSvc;
+
+	@DataContext("market_payment")
+	def pmtEm;
+
+	@DataContext("market_compromise")
+	def compromiseEm;
+
+	@Service("MarketCompromiseService")
+	def compromiseSvc;
+
+	@Service("MarketBillingProcessService")
+	def billProcSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("MarketControlnoService")
+	def controlNoSvc;
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'market_compromise' }")
+	public void beforeCreate(def evt) {
+		def o = evt.args[0];
+		o.state = 'OPEN';
+		o.controlno = controlNoSvc.getNextNo( [varname: "market_compromise_controlno"] );
+		o.controldate = dateSvc.getServerDate();
+	}
+
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'market_compromise' }")
+	public void beforeRemoveEntity(def evt) {
+		def o = evt.args[0];
+
+		def pmt = pmtEm.find( [refid: o.objid ] ).first();
+		compromiseEm.find( [objid: o.objid ] ).update( [state: "OPEN", creditmemoid: "{NULL}" ] );
+
+		pmtSvc.voidPayment( [objid: pmt.objid ] );
+	}
+
+	
+}

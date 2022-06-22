@@ -1,0 +1,93 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class WorkflowTaskListService  {		
+
+	@Service("QueryService")
+	def querySvc;
+
+    @DataContext("sys_wf_node")
+    def wfNode;
+
+    @Service("SchemaService")
+    def schemaService;
+
+    @DataContext(dynamic=true)
+    def db;
+
+    @Service(value='UserRoleService')
+    def roleSvc;
+
+    @Env 
+    def env;
+
+    @Service("WorkflowTaskCountService")
+    def taskCountSvc;
+
+    @ProxyMethod
+    public def getNodeList( def o ) {
+        if(!o.processname) throw new Exception("processname is required");
+        def schemaName = o._schemaname;
+
+        def nodes = [];
+        nodes << [title:'Search', name:'search'];
+        nodes << [title:'My Tasks', name:'mytask'];
+        wfNode.find( [processname: o.processname] ).where(" (nodetype = 'state' OR nodetype = 'end') ").orderBy("idx").list().each {
+            nodes << [title: it.title , name: it.name, domain: it.domain, role:it.role, tracktime: it.tracktime, nodetype:it.nodetype, count: 0 ]
+        }
+
+        //get node list task count here
+        def nodeListCount = taskCountSvc.getNodeListTaskCount( o );
+        nodeListCount.each { v->
+            def vr = nodes.find{ it.name ==  v.state };
+            if( vr && v.count ) vr.title =  vr.title + " ("+ v.count + ")";
+        }
+
+        return nodes;
+    }
+
+    
+
+    @ProxyMethod
+    public def getList( def o ) {
+        if(o.node?.name) {
+            def s = null;
+            def p = [:];
+            switch(o.node.name) {
+                case 'all':
+                    break;
+
+                case 'search':  
+                    //if there is no where specified then dont display anything.
+                    if(!o.where && !o.orWhereList) {
+                        s = " 1=0 ";
+                    }  
+                    else {
+                        s = "task.enddate IS NULL";
+                    }
+                    break;
+
+                case 'mytask': 
+                    s = "task.state NOT IN ('start','end') AND task.enddate IS NULL AND task.assignee.objid=:assignee";
+                    p.assignee = env.USERID;
+                    break;    
+
+                default:
+                    s = "task.state=:state AND task.enddate IS NULL ";
+                    p.state = o.node.name;
+                    
+            }
+            if( !o.where ) {
+                o.where = [s,  p ];
+            }
+            else {
+                o.where[0] = s + " AND " + o.where[0];
+                o.where[1] = p + o.where[1];
+            }
+        }
+        return querySvc.getList(o);    
+    }
+
+
+}
+

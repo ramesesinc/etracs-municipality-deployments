@@ -1,0 +1,118 @@
+import com.rameses.annotations.*;
+import groovy.text.*;
+import java.util.regex.*;
+import com.rameses.osiris2.reports.*;
+import com.rameses.osiris3.sql.*;
+import groovy.lang.GroovyShell;
+import groovy.lang.Script;
+import org.codehaus.groovy.runtime.InvokerHelper;
+
+class SysReportService {
+	
+	@PersistenceContext("main")
+	def em;
+
+	@DataContext("sys_report_def")
+	def reportDefEm;
+	
+	@Service("UserRoleService")
+	def userRole;
+
+	@Service("DBService")
+	def dbService;
+
+	@Service("QueryService")
+	def qrySvc;
+
+	@Service(dynamic=true)
+	def dynSvc;
+
+	@Env 
+	def env;
+
+	@ProxyMethod
+	public def getListByCategory( def o ) {
+		def roles = userRole.getRolesString( [:] );
+		return reportDefEm.select("name,title,template,parameters").where("state='DEPLOYED' AND category = :cat ", [cat: o.category ]).orderBy("sortorder").list();
+	}
+
+	@ProxyMethod
+	public def findReportDef( def o ) {
+		if(!o.name) throw new Exception("name is required in findReportDef");
+		def r =  reportDefEm.find([name: o.name]).select("name,title,template,parameters,state").first();
+		if(!r) throw new Exception("report " + o.name + " not found in findReportDef");
+		if(r.state != 'DEPLOYED') throw new Exception("report " + o.name + " is not deployed");
+		return r;
+	}
+
+	private void setParams( def qry, def params ) {
+		if(!params) return;
+		if( params instanceof List) {
+			for(int i=0;i<params.size();i++) {
+				qry.setParameter(i+1, params[i] );
+			}
+		}
+		else if( params instanceof Map ) {
+			qry.setParameters(params);
+		}
+	}
+
+	@ProxyMethod
+	public def getReportData( def o ) {
+
+		def rpt = reportDefEm.find( [name: o.name ] ).first();
+		if(!rpt) throw new Exception("report def " + o.name + " not found ");
+
+		if( rpt.querytype == "SQL" ) {
+			def xsql = "SELECT q.* FROM (" + rpt.statement + ") q ";
+			def paramMap = [:]
+
+			if(o.params) paramMap.putAll( o.params );
+
+			if( o.filters ) {
+				def bufflist = [];
+				o.filters.each { f->
+					def str = null;
+					if( f.operator.symbol.matches("IN|NOT IN") ) {
+						str = "q." + f.name + " ";
+						str += f.operator.symbol +  " ('" + f.items*.key.join("','") + "')";
+					}	
+					else {
+						if(f.value==null) throw new Exception("Please provide " + f.name + " value ");
+						paramMap.put( f.name, f.value );
+						str = "q." + f.name + " " + f.operator.symbol + " \$P{" + f.name + "}";
+
+						if( f.operator.symbol == 'BETWEEN' ) {
+							if(f.tovalue==null) throw new Exception("Please provide " + f.name + " to value ");
+							paramMap.put( f.name+"2", f.tovalue );
+							str += " AND \$P{" + f.name + "2}";
+						}
+
+					}
+					if(str ) bufflist << str; 
+				}
+				xsql += " WHERE " + bufflist.join( " AND " );
+			}
+
+			def qry = em.sqlContext.createQuery(xsql);
+			qry.setVars( paramMap );
+			qry.setParameters( paramMap );
+
+			return qry.resultList;
+		}
+		else if( rpt.querytype == "SCRIPT" ) {
+			GroovyShell shell = new GroovyShell();
+            def script = shell.parse(rpt.statement);
+            groovy.lang.Binding bnd = new groovy.lang.Binding();
+            bnd.setVariable( "QRY", qrySvc );
+            bnd.setVariable( "SERVICE", dynSvc );
+            bnd.setVariable( "PARAMS", ((o.params) ? o.params : [:]) );
+			Script s = InvokerHelper.createScript( script.getClass(), bnd);
+            return s.run();			
+		}
+
+		throw new Exception("no query type handler found for " + rpt.querytype );
+	}
+
+}
+

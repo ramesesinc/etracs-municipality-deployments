@@ -1,0 +1,212 @@
+import com.rameses.annotations.*;
+
+import market.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import treasury.utils.*;
+import java.rmi.server.*;
+
+
+class MarketPaymentService {
+	
+	@DataContext("vw_market_bill")
+	def vwBillEm;
+
+	@DataContext("market_penalty_billitem")
+	def penaltyItemEm;
+
+	@DataContext("market_credit_billitem")
+	def creditEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("market_payment")
+	def pmtEm;
+
+	@DataContext("market_payment_bill")
+	def pmtBillEm;
+
+	@DataContext("market_payment_item")
+	def pmtItemEm;
+
+	@DataContext("market_billitem")
+	def billItemEm;
+
+	@DataContext("market_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("market_bill")
+	def billEm;
+
+	@DataContext("vw_market_account")
+	def acctEm;
+
+	@Service("MarketBillingProcessService")
+	def billSvc;
+
+
+	@DataContext("market_itemaccount")
+	def itemAcctEm;
+
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in MarketPaymentService.getBillItems");
+		if(!o.txndate) throw new Exception("txndate is required in MarketPaymentService.getBillItems"); 
+		
+		if( o.txndate instanceof String ) {
+			def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			o.txndate = df.parse( o.txndate );	
+		}
+
+		//check first if bill validity date is less than payment date, we need to re assess first 
+		def vbill = vwBillEm.find([ objid: o.billid ] ).select("billtype,expirydate,validitydate").first();
+
+		if( o.txndate.after( vbill.expirydate )  )
+			throw new Exception("Txndate must be less than expiry date of bill");
+
+		if( o.txndate.after( vbill.validitydate )) {
+			billSvc.rebill( [billid: o.billid, txndate: o.txndate ] );	
+		}
+
+		o.billtype = vbill.billtype; 
+
+		if(!o.billid) {
+			if(!o.acctid) throw new Exception("billid or acctid is required in MarketPaymentService.getBillItems")
+			def acct = acctEm.select("currentbillid").find( [objid: o.acctid ] ).first();
+			if(!acct.currentbillid) throw new Exception("There is no current billid for account "  + acct.acctno );
+			o.billid = acct.currentbillid;
+		}
+
+		def billitems = [];
+
+		def p = [ billid: o.billid, amtpaid: o.amount, txndate: o.txndate, billtype: o.billtype ]
+		def facts = billSvc.executeRules( "marketpayment", p );
+
+		facts.findAll{ (it instanceof MarketBillItem) && (it.amount > 0) }.each {
+			billitems << it.toMap();
+		}
+		facts.findAll{ it instanceof CreditBillItem }.each {
+			billitems << it.toMap();
+		}
+
+		return billitems;
+	}
+
+	@ProxyMethod
+	public def getList(def o ) {
+		if(!o.billid) throw new Exception("billid is required in getPaymentList");
+		return pmtEm.getList( o );
+	}
+
+	
+
+	@ProxyMethod
+	public def prePayment( def o ) {
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refid) o.refid = o.objid;
+		if(!o.reftype) o.reftype = "cashreceipt";
+
+		if(!o.bills) throw new Exception("param bills is required in MarketPaymentService.prePayment");
+		if(!o.refdate) throw new Exception("refdate is required in  MarketPaymentService.prePayment");
+
+		def items = [];
+		o.bills.each { b->
+			billSvc.rebill( [billid: b.billid, txndate: o.refdate ] );
+			def rci = getReceiptItems( [billid: b.billid, amount: b.amount, txndate: o.refdate ] );
+			items.addAll( rci.items );
+		}
+		return [items: items ];
+	}
+
+	@ProxyMethod
+	public def getReceiptItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in getReceiptItems");
+		if(!o.amount) throw new Exception("amount is required in getReceiptItems");
+		if(!o.txndate) throw new Exception("txndate is required in getReceiptItems");
+
+		def pp = [billid: o.billid, txndate: o.txndate, amtpaid: o.amount ];
+		def facts = billSvc.executeRules( "marketpayment",  pp );
+		def items = [];
+
+		facts.findAll{ it instanceof CashReceiptItem }.each { 
+			items << it.toMap();
+		}
+
+		def itemAmt = NumberUtil.round( items.sum{it.amount} );
+		def pmtAmt = NumberUtil.round( o.amount );
+		if(itemAmt!=pmtAmt) {
+			throw new Exception("Amount of receipt items must equal to amount paid. Please check rules in cashreceipt mapping");
+		}
+
+		return [items: items, amount: itemAmt ]; 
+	}
+
+	@ProxyMethod
+	public def postPayment( def o ) {
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refid) o.refid = o.objid;
+		if(!o.reftype) o.reftype = "cashreceipt";
+		if(!o.bills) throw new Exception("bills paramater is required in MarketPaymentService.postPayment")
+		def pmt = [:];
+		pmt.refid =  o.refid;
+		pmt.refno =  o.refno;
+		pmt.reftype =  o.reftype;
+		pmt.refdate =  o.refdate;
+		pmt.txnmode =  o.txnmode;
+		pmt.voided =  0;
+		pmt.amount =  o.amount;
+		pmt.remarks =  o.remarks;
+		pmt = pmtEm.create( pmt );
+		o.bills.each {
+			def bb = [:];
+			bb.parentid = pmt.objid;
+			bb.billid = it.billid;
+			bb.amount = it.amount;
+			bb = pmtBillEm.create( bb );
+			billSvc.rebill( [billid: bb.billid, txndate: pmt.refdate ] );
+			def pp = [billid: bb.billid, txndate: pmt.refdate, paymentid: bb.objid, amtpaid: bb.amount ];
+			def facts = billSvc.executeRules( "marketpayment",  pp );
+			def hasItems = facts.findAll{ (it instanceof AbstractBillItem) && it.amount > 0 };
+			if(!hasItems) throw new Exception("there are no items to pay");
+			billSvc.savePayment( pp, facts );
+			billEm.updateTotalPayment( [billid: bb.billid ] );
+
+		}
+		return pmt;
+	}
+
+	@ProxyMethod
+	public def voidPayment( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in MarketPaymentService.voidPayment");
+
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		if(!pmt) pmt = pmtEm.find( [refid: o.receiptid ] ).first();	
+		pmtEm.find( [objid: pmt.objid ] ).update( [voided: 1 ] );
+
+		if(pmt.reftype == 'creditmemo') {
+			billSvc.voidPostCredit( [refid: pmt.objid ]  );
+		}
+		else {
+			def billList = pmtBillEm.find( [parentid: pmt.objid ] ).list();
+
+			billList.each { b->
+				def itemList = pmtItemEm.find( [parentid: b.objid ] ).list();
+				itemList.each { bi->
+					abstractBillItemEm.find( [objid: bi.billitemid ] ).update( [amtpaid: "{amtpaid - :amt}"], [ amt: bi.amount ] );	
+				}
+				pmtItemEm.find( [parentid: b.objid ] ).delete();
+				creditEm.find( [paymentid: b.objid ] ).delete();
+				billEm.updateBillTotals( [billid: b.billid ] );	
+				billEm.updateTotalPayment( [billid: b.billid ] );
+			}
+			if( pmt.reftype=='compromise' || pmt.txnmode != 'ONLINE' ) {
+				pmtBillEm.find( [parentid: pmt.objid ] ).delete();	
+				pmtEm.find( [objid: pmt.objid ] ).delete();	
+			}
+		}
+	}
+
+}

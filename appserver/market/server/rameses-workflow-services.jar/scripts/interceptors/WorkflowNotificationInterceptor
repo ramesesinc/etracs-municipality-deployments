@@ -1,0 +1,39 @@
+import com.rameses.annotations.*;
+
+class WorkflowNotificationInterceptor {
+
+    @Service("WorkflowNotificationService")
+    def notificationSvc;
+
+	@After( pattern="WorkflowTaskService.start", index=10000 ) 
+	public void onStartTask( evt ) {  
+		def params = evt.args[0]; 
+		def ntask = evt.result;
+		if(params.notificationid) {
+			ntask.notificationid = params.notificationid;
+			notificationSvc.notify( ntask );
+		}	
+	} 
+
+	@After( pattern="WorkflowTaskService.signal", index=10000 ) 
+	public void onSignalTask( evt ) {  
+		def params = evt.args[0]; 
+		def ntask = evt.result;
+		if(params.notificationid) {
+			ntask.notificationid = params.notificationid;
+			notificationSvc.notify( ntask );
+		}	
+	} 
+
+	@After( pattern="WorkflowTaskService.assignToMe", index=10000 ) 
+	public void onAfterAssignToMe( evt ) {  
+		def params = evt.args[0]; 
+		def ntask = evt.result;
+		if(params.notificationid) {
+			ntask.notificationid = params.notificationid;		
+			notificationSvc.notify( ntask );
+		}	
+	} 
+
+
+}

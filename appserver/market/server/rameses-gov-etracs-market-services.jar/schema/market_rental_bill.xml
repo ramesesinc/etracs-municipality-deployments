@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="market_rental_bill" extends="market_bill">
+		<field name="objid" primary="true"  prefix="MKTRNTBILL"/>
+		<field name="rateid" required="true"/>	
+	</element>
+</schema>

@@ -1,0 +1,29 @@
+<schema>
+	<element tablename="market_changeapp">
+		<field name="objid" primary="true" prefix="CHNGAPP"/>
+		<field name="appno" />
+
+		<field name="apptype" />
+		<field name="dtcreated" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="remarks" />
+		
+		<complex name="account" ref="market_account" jointype="many-to-one" required="true">
+			<key field="acctid" target="objid" />
+		</complex>
+
+		<complex name="oldacctinfo" ref="vw_market_account_info" jointype="many-to-one" required="true">
+			<key field="oldacctinfoid" target="objid" />
+		</complex>
+
+		<complex name="newacctinfo" ref="vw_market_account_info" jointype="many-to-one">
+			<key field="newacctinfoid" target="objid" />
+		</complex>
+		
+		<complex name="task" ref="market_changeapp_task" jointype="many-to-one" required="true">
+			<key field="taskid" target="taskid" />
+		</complex>
+
+	</element>
+</schema>

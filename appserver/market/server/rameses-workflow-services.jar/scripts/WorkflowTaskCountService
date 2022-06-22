@@ -1,0 +1,68 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import com.rameses.common.*;
+import com.rameses.util.*;
+
+class WorkflowTaskCountService  {		
+
+    @Service(value='UserRoleService')
+    def roleSvc;
+
+    @Service
+    def self;
+
+    @Env
+    def env;
+
+    @ActiveDB(dynamic=true)
+    def activeDb;
+
+    @ProxyMethod
+    public def getUserRoles(def o) {
+        def orgid = env.ORGID;
+        def userid = env.USERID;
+        if (env.ORGROOT == 1) {
+            orgid = null;
+        }   
+        def userRoles = roleSvc.getUserRoles([userid: userid, orgid:orgid]);
+        return userRoles*.key;
+    }
+
+    //this is overridable by specific applications
+    @ProxyMethod
+    public def getCustomNodeListTaskCount( def o ) {
+        return [];
+    }
+
+    @ProxyMethod
+    public def getNodeListTaskCount( def o ) {
+        o.notificationid = o.notificationid;
+        //this is to check if there are overrides
+        def customList = self.getCustomNodeListTaskCount( o );
+        if( customList ) return customList;
+
+        def taskCount = activeDb.lookup( "main", "wf_taskcount");
+
+        def orgid = (env.ORGROOT == 1) ? null : env.ORGID;
+        def m = [processname: o.processname, roles:  roleSvc.getRolesString( [orgid: orgid]  ), userid: env.USERID ];
+        //taskCount.debug = true;
+        def nodeList = taskCount.getNodeListTaskCount( m );
+        return nodeList;
+    }
+
+    @ProxyMethod
+    public def getProcessTaskCount( def o ) {
+        def nodeList = getNodeListTaskCount( o );
+        if(!nodeList) return [ count: 0 ];
+        return [count: nodeList.sum{ it.count }];
+    }
+
+    @ProxyMethod
+    public def getMyTaskCount( def o ) {
+        def m = [processname:o.processname, userid: env.USERID];
+        def taskCount = activeDb.lookup( "main", "wf_taskcount");
+        return taskCount.getMyTaskCount( m );
+    }
+
+
+}

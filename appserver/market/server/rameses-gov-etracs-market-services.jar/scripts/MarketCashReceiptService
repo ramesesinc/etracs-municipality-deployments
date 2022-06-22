@@ -1,0 +1,19 @@
+import com.rameses.annotations.*;
+
+class MarketCashReceiptService {
+	
+	@Service("MarketBillingProcessService")
+	def billingSvc;
+
+	@ProxyMethod
+	public def getBilling( def o ) {
+		def param = o.params;
+        def txntype = param.txntype;
+        def txndate = param.billdate;
+        if(!txndate) txndate = dateSvc.getBasicServerDate();
+        
+
+	}
+
+	
+}

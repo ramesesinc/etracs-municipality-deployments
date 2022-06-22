@@ -1,0 +1,59 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.lrameses.util.*;
+
+class MarketRecurringFeeService {
+	
+	
+	@Service("MarketBillingProcessService")
+	def billProcSvc;
+
+	@DataContext("market_recurringfee")
+	def recurringfeeEm;
+
+	@DataContext("market_billitem")
+	def billitemEm;
+
+
+	/*
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		if( !o.acctid ) throw new Exception("acctid is required in MarketRecurringFeeService.getBillItems")
+		return recurringfeeEm.find( [acctid: o.acctid ] ).list();
+	}
+	*/
+	
+	@ProxyMethod
+	public void loadBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in MarketRecurringFeeService.loadBillItems");
+		if(!o.acctid) throw new Exception("acctid is required in MarketRecurringFeeService.loadBillItems");
+	
+		if(!o.year) throw new Exception("year is required in MarketRecurringFeeService.loadBillItems");
+		if(!o.month) throw new Exception("month is required in MarketRecurringFeeService.loadBillItems");
+		if(!o.billdate) throw new Exception("billdate is required in MarketRecurringFeeService.loadBillItems");
+
+		def list = recurringfeeEm.find( [acctid: o.acctid] ).list();
+		list?.each {
+			def m = [:];
+			m.billid = o.billid;
+			m.item = [objid: it.itemid];
+			m.amount = it.amount;
+			m.amtpaid = 0;
+			m.auto = 1;
+			m.forwarded = 0;
+			m.year = o.year;
+			m.month = o.month;
+			m.billdate = o.billdate;
+			m.uid = it.itemid;	
+			billitemEm.create( m );
+		}
+	}
+
+	//this is called when voiding the bill
+	@ProxyMethod
+	public def returnBillItem( def o ) {
+				
+	}
+
+
+}

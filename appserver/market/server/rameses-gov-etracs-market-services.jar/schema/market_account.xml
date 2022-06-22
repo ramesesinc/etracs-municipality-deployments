@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="market_account">
+		<field name="objid" primary="true" prefix="MKTACCT"/>
+		<field name="acctno" />
+		<field name="state" />		
+		<field name="txnmode" />	
+		<field name="createdby_objid" />			
+		<field name="createdby_name" />	
+		<field name="dtcreated" />	
+
+		<!-- link to current account details -->
+		<field name="acctinfoid" />
+	</element>
+</schema>

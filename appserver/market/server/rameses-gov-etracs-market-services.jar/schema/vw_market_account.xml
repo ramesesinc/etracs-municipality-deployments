@@ -1,0 +1,75 @@
+<schema>
+	<element tablename="vw_market_account">
+
+		<field name="objid" primary="true"/>
+		<field name="state" />
+		<field name="acctno" searchable="true" indexed="true"/>
+		<field name="dtcreated" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="remarks" />
+		<field name="txnmode" />
+		
+		<field name="acctinfoid" />
+		<field name="acctname" searchable="true" indexed="true"/>
+		<field name="areasqm" />
+		<field name="owner_name" searchable="true" indexed="true"/>
+		<field name="owner_address_text" />
+
+		<field name="owner_profileid" />
+		<field name="owner_profileno" />
+		<field name="owner_entitytype" />		
+		<field name="owner_name" searchable="true" caption="Name"/>		
+		<field name="owner_firstname" />
+		<field name="owner_middlename" />
+		<field name="owner_lastname" />
+		<field name="owner_resident" />
+		<field name="owner_address_text" />
+		<field name="owner_address_unitno" />
+		<field name="owner_address_bldgno" />
+		<field name="owner_address_bldgname" />
+		<field name="owner_address_street" />
+		<field name="owner_address_subdivision" />
+		<field name="owner_address_barangay_objid" />
+		<field name="owner_address_barangay_name" />
+		<field name="owner_address_citymunicipality" />
+		<field name="owner_address_province" />
+		<field name="owner_tin" />
+		<field name="owner_email" />
+		<field name="owner_mobileno" />
+		<field name="owner_phoneno" />
+		<field name="owner_id_type_name" />
+		<field name="owner_id_idno" />
+		<field name="owner_id_placeissued" />
+		<field name="owner_id_dtissued" />
+
+		<field name="contact_mobileno" />
+		<field name="contact_email" />
+		<field name="contact_phoneno" />
+
+		<field name="contact_mobileno" />
+		<field name="contact_email" />
+		<field name="contact_phoneno" />
+		
+		<field name="business_objid" />
+		<field name="business_bin"/>
+		<field name="business_tradename" />
+
+		<field name="unitid" />
+		<field name="unitno" indexed="true" searchable="true"/>
+
+		<field name="paymentmode" indexed="true"/>
+		<field name="centerid" />
+		<field name="center_name" />
+		<field name="orgunitid" />
+		<field name="orgunit_name" />
+		<field name="orgunit_fullpath" searchable="true" indexed="true" caption="Org Unit"/>
+		<field name="billgroupid" />
+
+		<complex name="currentrate" ref="market_rental_rate" jointype="many-to-one" required="false" 
+			includefields="rate,ratetype,effectivedate">
+			<key field="rateid" target="objid" />
+		</complex>	
+	</element>
+</schema>
+

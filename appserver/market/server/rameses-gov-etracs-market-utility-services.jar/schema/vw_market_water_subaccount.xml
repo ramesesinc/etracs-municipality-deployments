@@ -1,0 +1,24 @@
+<schema>
+	<element tablename="vw_market_water_subaccount">
+		<field name="objid" primary="true" />
+		<field name="state" />
+		<field name="acctid" />
+		<field name="acctno" />
+		<field name="centerid" />
+		<field name="unitno" />
+		<field name="parentacctno" />
+		<field name="acctname" />
+		<field name="owner_objid" />
+		<field name="owner_name" />
+		<field name="owner_address_text" />
+		<field name="capacity" />
+		<field name="currentreading" />
+		<field name="center_name" />
+		<field name="centerid" />
+		<field name="orgunit_name" />
+		<field name="orgunitid" />
+		<field name="billgroupid" />
+	</element>
+</schema>
+
+		

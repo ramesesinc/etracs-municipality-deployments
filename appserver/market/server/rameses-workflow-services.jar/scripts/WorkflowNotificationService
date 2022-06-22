@@ -1,0 +1,34 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import com.rameses.common.*;
+import com.rameses.util.*;
+
+class WorkflowNotificationService  {		
+
+    @XConnection('socketio')
+    def socketio;
+
+    @DataContext("sys_wf")
+    def wfEm;
+
+    @ProxyMethod
+    @Async
+    public void notify( def data ) {
+        def event = data.notificationid;
+        //println "entering new notification service " + event;
+        if(!event) event = data.processname;
+        def packet = [:];
+        packet.processname = data.processname;
+        packet.refid = data.refid;
+        packet.taskid = data.taskid;
+        socketio.send(event, packet);
+        //we will also send a packet to the domain. Used for home main menu
+        def dom = wfEm.find( [name: data.processname ] ).select("domain").val();
+        if( dom ) {
+            socketio.send(dom.toLowerCase(), [domain: dom]);
+        }
+    }
+
+    
+
+}

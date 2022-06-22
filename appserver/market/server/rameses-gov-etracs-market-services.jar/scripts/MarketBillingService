@@ -1,0 +1,441 @@
+import com.rameses.annotations.*;
+
+import com.rameses.functions.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+import java.text.*;
+
+class MarketBillingService {
+
+ 	@Service("MarketBillingProcessService")
+    def billingSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext(dynamic=true)
+	def dbEm;
+
+	@DataContext("market_bill")
+	def billEm;
+
+	@DataContext("vw_market_bill")
+	def vwBillEm;
+
+	@DataContext("vw_market_account")
+	def vwAcctEm;
+
+	@DataContext("market_penalty_billitem")
+	def penaltyItemEm;
+
+	@DataContext("market_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("market_billitem")
+	def billItemEm;
+
+	@DataContext("market_billgroup_unit")
+	def billGrpEm;
+
+	@Service("MarketControlnoService")
+	def controlNoSvc;
+
+	@Service("MarketBillScheduleService")
+    def billScheduleSvc;
+
+    @Service("MarketRecurringFeeService")
+    def recurringFeeSvc;
+
+	@Service("MarketCompromiseService")
+    def compromiseSvc;
+
+    @DataContext("market_rental_rate")
+	def rentalRateEm;
+
+    @Service
+    def self;
+
+    @Env
+    def env;
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	@ProxyMethod
+	public void initFirstBill( def o ) {
+		//need to override
+	}	
+
+	@ProxyMethod
+	public void beforeCreateBill( def o ) {
+		//need to override
+	}	
+
+
+	@ProxyMethod
+	public void buildBalanceForward( def o ) {
+		if(!o.billid) throw new Exception("billid is required in buildBalanceForward");
+		if(!o.prevbillid) throw new Exception("prevbillid is required in buildBalanceForward");
+
+		def sdf = new java.text.SimpleDateFormat("yyyyMMdd");
+		def billitems = billItemEm.getBillItemsForBalanceForward( [billid: o.prevbillid] );
+		def penaltyItems = penaltyItemEm.getItemsForBalanceForward( [billid: o.prevbillid] );
+		
+		billitems.each { b->
+			b.billid = o.billid;
+			b.auto = 1;
+			b.forwarded = 1;
+			b.amtpaid = 0;
+			b.uid = b.item.objid + "_" + b.year + "_" + b.month;
+			b.remarks = "" + b.year + " " + months[ b.month.toInteger() - 1];
+			b = billItemEm.create( b );
+			def pItems = penaltyItems.findAll{ p-> (p.refitemid==b.item.objid) && (p.year==b.year) && (p.month==b.month) };
+			pItems?.each { sb->
+				sb.billitemrefid = b.objid;
+				sb.billid = o.billid;
+				sb.auto = 1;
+				sb.forwarded = 1;
+				sb.amtpaid = 0;
+				sb.uid = (sb.type +"_"+sb.billitemrefid +"_"+ (new java.text.SimpleDateFormat("yyyyMMdd").format(sb.billdate))); 
+				penaltyItemEm.create( sb );
+			}
+		};
+
+		def credit = creditItemEm.find( [billid: o.prevbillid ] ).select("itemid:{MAX(itemid)},amount:{SUM(amount - amtpaid)}").where("1=1").first();
+		if( credit?.amount !=null && credit.amount < 0 ) {
+			def cr = [:];
+			cr.billid = o.billid;
+			cr.item = [objid: credit.itemid ];
+			cr.uid = o.billid + "_forward_credit";
+			cr.forwarded = 1;
+			cr.auto = 1;
+			cr.amount = 0;
+			cr.amtpaid = 0 - credit.amount;
+			creditItemEm.create( cr );
+		}
+		billEm.updateBalanceForward( [billid: o.billid] );
+	}
+
+	@ProxyMethod
+    public def buildInitialBillItems( def bill ) {
+    	def parm  = [billid: bill.objid, 
+			acctid: bill.acctid, 
+ 			year:bill.billschedule.year, 
+ 			month:bill.billschedule.month, 
+ 			billdate: bill.billschedule.billdate ];
+
+    	//load recurring and other fees
+		recurringFeeSvc.loadBillItems( parm );
+		compromiseSvc.loadBillItems( parm );	
+    }
+
+	// --------------------------------------
+	// states: 0=OPEN   1=POSTED   2=CLOSED
+	// --------------------------------------
+	@ProxyMethod
+	public def create(def p) {
+		if(!p.acctid) throw new Exception("acctid is required in MarketBillingService.create");
+		if(!p.billtype ) throw new Exception("billtype is required in MarketBillingService.create");
+		if(!p.year ) throw new Exception("year is required in MarketBillingService.create");
+		if(!p.month ) throw new Exception("month is required in MarketBillingService.create");
+
+		if(!p.txndate ) p.txndate = dateSvc.getServerDate();
+
+		def	acct = vwAcctEm.find([objid: p.acctid]).first();
+		def bg = billGrpEm.find( [unitid: acct.unitid , billtype: p.billtype ] ).first();
+		if( !bg) throw new Exception("Please associate the unit with a billgroup");
+
+		def billgroupid = bg.billgroupid;
+		if(!billgroupid) throw new Exception("There is no billgroup assigned for the unit for this account");
+
+		def aBillEm = dbEm.lookup( "market_" + p.billtype.toLowerCase() + "_bill" );
+
+		//find the last bill if any and close it. The next bill should be next month of current bill
+		def prevBill = vwBillEm.find( [acctid: acct.objid, billtype: p.billtype ] ).orderBy("year DESC, month DESC").first();
+		if( prevBill ) {
+			if(prevBill.state!='POSTED') throw new Exception("Previous bill must be in POSTED state");
+			def sp = [:];
+			sp.billgroupid = billgroupid;
+			sp.year = prevBill.year;
+			sp.month = prevBill.month + 1;
+			if(sp.month > 12) {
+				sp.year = sp.year + 1;
+				sp.month = 1;
+			};
+
+			//if year and month is specified but it does not match the next year and month, throw an error
+			if( p.year ) {
+				if( p.year != sp.year ) throw new Exception("Previous year increment does not match year specified");
+			}
+			if( p.month) {	
+				if( p.month != sp.month ) throw new Exception("Previous month increment does not match month specified");
+			}
+			p.billschedule = billScheduleSvc.getSchedule( sp );			
+		}
+		else {
+			if(!p.year && !p.month) throw new Exception("Please specify start year and month for this bill");
+			def sp = [:];
+			sp.billgroupid = billgroupid;
+			sp.year = p.year;
+			sp.month = p.month;
+			p.billschedule = billScheduleSvc.getSchedule( sp );
+		}
+		if(!p.billno) {
+			def dt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			def pdate = dt.parse( p.billschedule.year + "-" + p.billschedule.month + "-01");
+			p.billno = controlNoSvc.getNextNo( [varname:  "market_" + p.billtype + "_billno", txndate: pdate, centerid: acct.centerid ] );
+		}
+
+		//rental specific data
+		def bill = [:];
+		bill.batchid = p.batchid;
+		bill.prevbillid = prevBill?.objid;
+		bill.acctid = acct.objid; 
+		bill.acctinfoid = acct.acctinfoid;
+		bill.billschedule = p.billschedule;
+		bill.billno = p.billno;
+		bill.billtype = p.billtype.toUpperCase();
+		bill.billdate = p.billdate;
+		if(!bill.billdate) bill.billdate = p.billschedule.billdate; 
+		bill.validitydate = p.billschedule.fromdate;
+		bill.lasttxndate = dateSvc.getServerDate();
+		bill.state = "OPEN";
+		bill.acctid = p.acctid;
+		bill.txnmode = p.txnmode;
+		bill.balanceforward = 0;
+		bill.surcharge = 0;
+		bill.interest = 0;
+		bill.amount = 0;
+		bill.discount = 0;
+		bill.totalpayment = 0;
+		bill.hold = 0;
+
+		//added year and month
+		bill.year = bill.billschedule.year;
+		bill.month = bill.billschedule.month;
+
+		//applicable to rentals
+		if( p.billtype.toUpperCase() == 'RENTAL' ) {
+			//find latest applicable rate
+			def parm = [edate: bill.billschedule.fromdate ];
+			def rt = rentalRateEm.find( [unitid: acct.unitid ] ).where("effectivedate <= :edate", parm ).orderBy("effectivedate DESC").first();
+
+			if(!rt) throw new Exception("Account must have a rate in this period");
+			bill.rateid = rt.objid;
+		}
+		else {
+			def subAcctEm = dbEm.lookup( "market_" + p.billtype.toLowerCase() + "_subaccount" );
+			def subacct = subAcctEm.find( [acctid: p.acctid ]).where(" NOT(state = 'CLOSED') ").first();
+			bill.subacctid = subacct.objid;	
+		}	
+
+		bill = aBillEm.create( bill );
+		if( prevBill ) {
+			//close bill before balance forward to compute surcharges if any
+			closeBill( prevBill );
+			self.buildBalanceForward( [prevbillid: prevBill.objid, billid: bill.objid ] );
+		}
+		else {
+			self.initFirstBill( bill );
+		}
+
+		self.buildInitialBillItems( bill );	
+
+		if(p.autopost == 1 ) {
+			post( [billid: bill.objid, assess_on_post: true ] );
+		}
+		else {
+			assess( [billid: bill.objid, acct:  acct, txndate: p.billschedule.billdate ] );
+		}
+		return bill;
+	}
+
+	@ProxyMethod
+	public def cancelBill( def o ) {
+		def bill = vwBillEm.find( [objid: o.billid] ).first();
+		def billtype = bill.billtype;
+		
+
+		//check first if there are post credit items. we need to remove those first before proceeding
+		creditItemEm.find( [billid: o.billid ]).update( [paymentid: "{NULL}", creditmemoid: "{NULL}"] );
+		billingSvc.clearBillPostCredit( [billid: bill.objid ] );
+
+		creditItemEm.find( [billid: o.billid ]).delete();
+		penaltyItemEm.find( [billid: o.billid ] ).delete();
+		billItemEm.find( [billid: o.billid ] ).delete();
+
+		def acctBillEm = dbEm.lookup("market_" + billtype.toLowerCase() + "_bill");
+		acctBillEm.find( [objid: o.billid ] ).delete();
+
+		def lastBill = vwBillEm.find( [acctid: bill.acctid, billtype: billtype ] ).orderBy("year DESC, month DESC").first();
+		if( lastBill ) {
+			billEm.find( [objid: lastBill.objid ]).update( [state: "POSTED" ] );
+		}
+		return lastBill;
+	}
+
+	@ProxyMethod
+	public void unpost(def o) {
+		if(!o.billid) throw new Exception("Please specify billid");
+		billEm.find( [objid: o.billid ]).update( [state: "OPEN" ] );
+	}
+
+	@ProxyMethod
+	public void post(def o) {
+		if(!o.billid) throw new Exception("Please specify billid");
+		o.postingdate = dateSvc.serverDate;
+		if(o.assess_on_post) {
+			assess( o );
+		};
+		billEm.find( [objid: o.billid ]).update( [state: "POSTED" ] );
+	}
+
+	@ProxyMethod
+	public void assess( def o  ) {
+		if(!o.billid) throw new Exception("Please specify billid in MarketBilling.assess");
+
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+		if(o.postingdate?.before(bill.expirydate) ) o.txndate = o.postingdate;	
+		if(!o.txndate) o.txndate = bill.expirydate;
+
+		if(!(o.txndate instanceof Date)) {
+			def df = new SimpleDateFormat( "yyyy-MM-dd" );
+			o.txndate = df.parse( o.txndate );	
+		}
+		if( o.txndate.after( bill.expirydate ) ) 
+			throw new Exception("Invalid txndate. Txndate must be less than expiry date of bill");
+
+		if( bill.state == 'CLOSED ' ) return;
+
+		//check txndate must not be greater than billdate and expirydate
+		/*
+		if( !o.bypass_date_validation ) {
+			if( bill.expirydate && o.txndate.after(bill.expirydate) ) 
+				throw new Exception("MarketBillingService.assess error. txndate must be less than bill expirydate");
+			if( bill.billdate && o.txndate.before(bill.billdate) ) 
+				throw new Exception("MarketBillingService.assess error. txndate must be greater than bill billdate");	
+		}
+		*/
+		billingSvc.rebill(o);
+	}
+
+	@ProxyMethod
+	public void closeBill( def bill ) {
+		//assess previous bill before closing to calculate surcharge and interest if any 
+		assess( [billid: bill.objid, txndate: bill.expirydate ] );
+		billEm.find( [objid: bill.objid ]).update( [state: "CLOSED" ] );
+	}
+
+	//validate bill is called by cash receipt
+	@ProxyMethod
+	public def validateBill( def o ) {
+		if(!o.txndate) {
+			o.txndate = dateSvc.getServerDate();	
+		}
+		if( !(o.txndate instanceof Date) ) {
+			def df = new SimpleDateFormat( "yyyy-MM-dd" );
+			o.txndate = df.parse( o.txndate );
+		}
+
+		if(!o.billid) throw new Exception("Please specify billid in MarketBilling.validateBill");
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+		if( bill.state == 'CLOSED' )
+			throw new Exception("Bill is already closed. Please contact admin");
+		
+		if( o.txndate.after( bill.expirydate )  )
+			throw new Exception("Txndate must be less than expiry date of bill");
+
+		if( bill.state == 'OPEN' &&  o.txndate.after(bill.validitydate) ) {
+			throw new Exception("Bill must be posted. Please contact admin");
+		}	
+		if( bill.state == 'POSTED'  ) {
+			assess( [billid: o.billid,  txndate: o.txndate ] );
+			return [status: 1];
+		}
+		else {
+			return [status:0];
+		}
+	}
+ 
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		def billItems = billEm.getBillItems( [billid : o.billid ] );
+		if(!o.expanded) {
+			//return billItems;
+			def bItems = []; 
+			def pastItems = billItems.findAll{ it.forwarded == 1 }.groupBy{ it.particulars };
+			pastItems.each { k,v->
+				def fi = v.min{ ((it.year*12)+it.month) };
+				def ti = v.max{ ((it.year*12)+it.month) };
+				def str =  " " + months[ fi.month - 1 ];
+				if( fi.year != ti.year ) {
+					str += " " + fi.year + " to " + months[ ti.month - 1 ] + " " + ti.year;	
+				}
+				else if( fi.month != ti.month ) {
+					str += " to " + months[ ti.month - 1] + " " + ti.year;
+				}
+				else {
+					str += " " + fi.year;
+				}
+				def vv = [:];
+				vv.particulars = k + str;
+				vv.amount = v.sum{ it.amount };
+				vv.surcharge = v.sum{ it.surcharge };
+				vv.interest = v.sum{ it.interest }; 
+				vv.amtpaid = v.sum{ it.amtpaid };
+				vv.balance = v.sum{ it.balance }; 
+				bItems << vv;
+			}
+
+			bItems.addAll( billItems.findAll{ it.forwarded == 0 } );
+			return bItems;	
+		}
+		else {
+			billItems.each {
+				it.particulars += " " + months[it.month-1]+ " " + it.year;
+			}
+			return billItems;
+		}
+	}
+
+	@ProxyMethod
+	public void addBillItem( def o ) {
+		if(!o.year) throw new Exception("year is required");
+		if(!o.month) throw new Exception("month is required");
+
+		def df = new SimpleDateFormat( "yyyy-MM-dd" );
+		o.uid = o.item.objid + "_" + o.year + "_" + o.month; 
+
+		if(!o.billdate) {
+			o.billdate = df.parse( o.year + "-" + o.month + "-01" );			
+		}
+
+		o.remarks = "" + o.year + " " + months[ o.month.toInteger() - 1]; 
+		o.forwarded = 0;
+
+		billItemEm.create( o );
+		def bill = [billid: o.billid, txndate: o.billdate ];
+		billingSvc.processBill( bill, false, true );
+	}	
+
+	@ProxyMethod
+	public def getStatement(def o ) {
+		if(!o.billid) throw new Exception("billid is required");
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+		bill.items = billEm.getStatement([billid: o.billid ]);	
+		return bill;
+	}
+
+	@ProxyMethod
+	public void clearFees( def o ) {
+		if(!o.billid) throw new Exception("Please specify billid in MarketBilling.clearFees");
+		def mbs = billEm.find( [objid: o.billid]).select("billschedule.*").first();
+		def bdate = mbs.billschedule.fromdate;
+
+		penaltyItemEm.find( [billid: o.billid ] ).where("forwarded = 0").delete();
+		billItemEm.find( [billid: o.billid ] ).where("forwarded = 0").delete();
+
+		billEm.updateBillTotals( [billid: o.billid ] );
+		billEm.find( [objid: o.billid ] ).update( [validitydate: bdate ] );
+	}
+
+}

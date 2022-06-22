@@ -1,0 +1,28 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import java.util.concurrent.atomic.*;
+import market.util.*;
+
+class MarketBatchRentalRateProcessor {
+
+	@XConnection('socketio')
+    def socketio;
+
+	@XConnection("market")
+	def conn;
+
+    @Schedule( interval=60, timeUnit="SECONDS")
+	public void runBatch( def tsk ) {
+		println "run batch rental rate task now ... ";
+		def batch = new MarketBatchRateServiceDelegate( conn.conf )
+
+		def list = batch.getExpiredIdleList();
+
+		if(list) {
+			list.each { b->
+				batch.deployBatch( b );
+			}
+		}
+    }
+
+}

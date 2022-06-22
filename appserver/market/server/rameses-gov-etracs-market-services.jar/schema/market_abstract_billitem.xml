@@ -1,0 +1,15 @@
+<schema>
+	<element tablename="market_abstract_billitem">
+		<field name="objid" primary="true" prefix="MKTBILLITM"/>
+		<field name="billid" />
+		<complex name="item" ref="market_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex> 
+		<field name="amount" type="decimal" required="true"/>
+		<field name="amtpaid" type="decimal" required="true"/>
+		<field name="remarks" />	
+		<field name="uid" required="true"/>
+		<field name="auto" required="true"/>
+		<field name="forwarded" required="true"/>
+	</element>
+</schema>

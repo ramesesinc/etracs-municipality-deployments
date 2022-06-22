@@ -1,0 +1,12 @@
+<schema>
+	<element tablename="market_water_subaccount">
+		<field name="objid" primary="true" />
+		<field name="state" required="true" />
+		<field name="acctno" required="true" />		
+		<field name="acctid" required="true"  />
+		<field name="unitid" required="true"  />
+		<field name="capacity"  required="true"/>
+		<field name="currentreading"  required="true"/>
+		<field name="remarks" />
+	</element>
+</schema>

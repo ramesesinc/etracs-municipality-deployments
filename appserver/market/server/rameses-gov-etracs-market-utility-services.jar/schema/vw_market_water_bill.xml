@@ -1,0 +1,53 @@
+<schema>
+	<element tablename="vw_market_water_bill">
+		<field name="objid" primary="true" />
+		<field name="billno" />
+		<field name="billdate" />
+		<field name="billtype" />
+		<field name="lasttxndate" />
+		<field name="validitydate" />
+		<field name="acctid" />
+		<field name="state" />
+		<field name="remarks" />
+		<field name="balanceforward" />
+		<field name="totalpayment" />
+		<field name="interest" />
+		<field name="surcharge" />
+		<field name="amount" />
+		<field name="discount" />
+		<field name="txnmode" />
+		<field name="hold" />
+		<field name="uid" />
+		<field name="billscheduleid" />
+		<field name="acctinfoid" />
+		<field name="reading" />
+		<field name="readingdate" />
+		<field name="reader_objid" />
+		<field name="volume" />
+		<field name="rate" />
+		<field name="prevreading" />
+		<field name="capacity" />
+
+		<field name="acctno" />
+		<field name="centerid" />
+		<field name="acctname" />
+		<field name="owner_name" />
+		<field name="owner_address_text" />
+		<field name="txnmode" />
+		<field name="unitno" />
+
+		<field name="year" />
+		<field name="month" />
+		<field name="fromdate" />
+		<field name="todate" />
+		<field name="duedate" />
+		<field name="expirydate" />
+
+		<field name="orgunit_name" />
+		<field name="center_name" />
+
+		<field name="balance" type="decimal" expr="(balanceforward + interest + surcharge + amount) - totalpayment - discount"/>
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+	</element>
+</schema>
+	

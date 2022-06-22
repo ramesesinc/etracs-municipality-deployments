@@ -1,0 +1,27 @@
+<schema>
+	<element tablename="market_batch_bill">
+		<field name="objid" primary="true" prefix="MKTBATBILL"/>
+		<field name="billtype" required="true" />
+		<field name="billgroupid"  required="true" />
+		<field name="batchdate" />
+		<field name="taskid" />	
+
+		<!--   
+        Procstate:
+        0 = Idle. do nothing
+        1 = Ready for Processing. This will be picked up by the task
+        2 = Processing. This will not be picked up by the task. After processing it goes back to 0.
+		-->
+		<field name="procstate" />
+
+		<complex name="billschedule" ref="market_billschedule" jointype="many-to-one" required="true">
+			<key field="billscheduleid" target="objid" /> 		 	
+		</complex>	
+
+		<field name="counter" />
+		<field name="totalcount" />
+		<field name="autopost" type="integer" required="true"/>
+		<field name="autogenerate" type="integer" required="true"/>
+
+	</element>
+</schema>

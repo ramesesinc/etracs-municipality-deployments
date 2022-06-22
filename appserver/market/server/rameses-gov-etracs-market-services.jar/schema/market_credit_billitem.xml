@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="market_credit_billitem" extends="market_abstract_billitem">
+		<field name="objid" primary="true" prefix="MKTCRDTBILLITM"/>
+		<field name="paymentid" />
+		<field name="creditmemoid" />
+	</element>
+</schema>

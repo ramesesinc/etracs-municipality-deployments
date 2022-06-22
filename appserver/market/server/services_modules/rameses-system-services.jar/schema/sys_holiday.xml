@@ -1,8 +1,0 @@
-<schema adapter="main">
-	<element tablename="sys_holiday">
-		<field name="objid" primary="true"/>
-		<field name="year"  />
-		<field name="date"  />
-		<field name="name"  />
-	</element>
-</schema>

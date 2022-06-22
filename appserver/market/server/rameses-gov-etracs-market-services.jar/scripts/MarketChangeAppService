@@ -1,0 +1,59 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+
+class MarketChangeAppService {
+	
+	@DataContext("market_account")
+	def acctEm;
+
+	@DataContext("market_account_info")
+	def acctInfoEm;
+
+	@DataContext("market_changeapp")
+	def changeAppEm;
+
+	@DataContext("market_rental_unit")
+	def unitEm;
+
+	@ProxyMethod
+	public def retrieveAccount(def o ) {
+		if(!o.acctno) throw new Exception("acctno is required MarketChangeAppService.retrieveAccount" );
+		if(!o.apptype) throw new Exception("apptype is required MarketChangeAppService.retrieveAccount" );
+		
+		def acct = acctEm.find( [acctno: o.acctno] ).first();
+		if(!acct) throw new Exception("acct is required in MarketChangeAppService.retrieveAccount");
+
+		def m = [:];
+		m.account = acct;
+		m.oldacctinfo = acctInfoEm.find( [objid: acct.acctinfoid ] ).first();
+		m.newacctinfo = acctInfoEm.find( [objid: acct.acctinfoid ] ).first();
+		m.newacctinfo.objid = null;
+
+		if( o.apptype == "CHANGE_OWNER" ) {
+			m.newacctinfo.owner = [address:[barangay:[:]]];
+			m.newacctinfo.acctname = null;
+		}
+		else if( o.apptype == "TRANSFER_UNIT" ) {
+			m.newacctinfo.unit = [:];
+			m.newacctinfo.unitid = null;
+		}
+
+		return m;
+	}
+
+	@ProxyMethod
+	public def getHasBilling(def o) {
+		return [hasbilling: false];
+	}
+
+	@ProxyMethod
+	public def updateAccount(def o ) {
+		if(!o.appid) throw new Exception("appid required in MarketChangeAppService.updateAccount");
+		def app = changeAppEm.find([objid: o.appid]).first();
+		if(app.apptype == 'TRANSFER_UNIT') {
+			unitEm.find( [objid: app.oldacctinfo.unitid] ).update( [currentacctid: "{NULL}"] );
+			unitEm.find( [objid: app.newacctinfo.unitid] ).update( [currentacctid: app.acctid ] );	
+		}
+		acctEm.find([objid:app.acctid]).update([acctinfoid: app.newacctinfoid]);
+	}
+}

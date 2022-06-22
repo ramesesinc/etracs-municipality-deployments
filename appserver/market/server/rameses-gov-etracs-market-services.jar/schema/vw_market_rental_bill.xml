@@ -1,0 +1,54 @@
+<schema>
+	<element tablename="vw_market_rental_bill">
+		<field name="objid" primary="true"/>
+		<field name="acctid" />
+		<field name="billno" />
+		<field name="batchid" />
+		<field name="state" />
+		<field name="billscheduleid" />
+		<field name="remarks" />
+		<field name="balanceforward" type="decimal"/>
+		<field name="totalpayment" type="decimal"/>
+		<field name="interest" type="decimal"/>
+		<field name="surcharge" type="decimal"/>
+		<field name="amount" type="decimal"/>
+		<field name="discount" type="decimal"/>
+		<field name="txnmode" />
+		<field name="billdate" />
+		<field name="lasttxndate" />
+		<field name="validitydate" />
+		<field name="uid" />
+		<field name="acctno" searchable="true"/>
+		<field name="centerid" />
+		<field name="acctname" searchable="true"/>
+		<field name="rate" type="decimal"/>
+		<field name="ratetype" />
+		<field name="owner_objid" />
+		<field name="owner_name" />
+		<field name="owner_address_text" />
+		<field name="year" />
+		<field name="month" />
+		<field name="fromdate" />
+		<field name="todate" />
+		<field name="duedate" />
+		<field name="expirydate" />
+		<field name="billgroupid" />
+		<field name="paymentmode" />
+		<field name="hold" />		
+
+		<field name="unitno" searchable="true"/>
+		<field name="unittype" />
+
+		<field name="orgunitid" />		
+		<field name="orgunit_name" searchable="true"/>
+		<field name="orgunit_fullpath" indexed="true" />
+
+		<field name="center_name" searchable="true"/>		
+		<field name="center_title"/>	
+		<field name="center_address_text"/>	
+		<field name="center_contactinfo"/>	
+
+		<field name="balance" type="decimal" expr="(balanceforward + interest + surcharge + amount) - totalpayment - discount"/>
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+	</element>
+</schema>

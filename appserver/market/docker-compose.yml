@@ -3,33 +3,31 @@ version: "3"
 services:
 
   market-server:
+    image: "ramesesinc/enterprise-common-server:255.05.001"
     container_name: market-server
-    image: ramesesinc/local-market-server:v001
     restart: always
-
     logging: 
       driver: "json-file"
       options:
         max-file: "5"
         max-size: "10m"
-
     env_file:
-      - ./env.conf
       - ../../_res/env.conf
       - ../../_custom/env.conf
-
     ports:
       - "8074:8070"
-
     volumes:
       - ../../_res/connections:/apps/server/services/apps/enterprise/connections/ext
-      - ../../_custom/datasources/marketds:/apps/server/services/datasources/mainds
+      - ../../_custom/datasources/market2ds:/apps/server/services/datasources/mainds
+      - ../../_custom/report-files/market:/report-files
 
-      - ./_dev_lib/db-dialect.jar:/apps/server/lib/db-dialect.jar
-      - ./_dev_lib/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
-      - ./_dev_lib/rameses-main-bootloader.jar:/apps/server/lib/rameses-main-bootloader.jar
-      - ./_dev_lib/rameses-osiris3-core2.jar:/apps/server/lib/rameses-osiris3-core2.jar
-      - ./_dev_lib/rameses-osiris3-server.jar:/apps/server/lib/rameses-osiris3-server.jar
+      - ./libs/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
+      - ./libs/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
 
-      - ./server/services_modules:/apps/server/services/modules
-      - ./server/apps_modules:/apps/server/services/apps/enterprise/modules
+      - ./modules/rameses-workflow-services.jar:/apps/server/services/modules/rameses-workflow-services.jar
+      - ./modules/rameses-seti-services.jar:/apps/server/services/modules/rameses-seti-services.jar
+      - ./modules/jasper-report-services.jar:/apps/server/services/modules/jasper-report-services.jar
+      - ./modules/rameses-treasury-common-services.jar:/apps/server/services/modules/rameses-treasury-common-services.jar
+      - ./modules/rameses-rule-services.jar:/apps/server/services/modules/rameses-rule-services.jar
+      - ./modules/rameses-gov-etracs-market-services.jar:/enterprise/modules/rameses-gov-etracs-market-services.jar
+      - ./modules/rameses-gov-etracs-market-utility-services.jar:/enterprise/modules/rameses-gov-etracs-market-utility-services.jar

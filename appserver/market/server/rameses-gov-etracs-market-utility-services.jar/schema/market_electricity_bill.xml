@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="market_electricity_bill" extends="market_bill">
+		<field name="objid" primary="true" prefix="MKTELECBILL"/>
+		<field name="subacctid" required="true"/>
+		<field name="initialreading" />
+		<field name="reading" />
+		<field name="readingdate" />
+		<field name="reader_objid" />
+		<field name="volume" />
+		<field name="rate" />
+	</element>
+</schema>
+

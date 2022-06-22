@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="market_payment_bill">
+		<field name="objid" primary="true" prefix="MKTPMTBILL"/>
+		<field name="parentid" required="true"/>
+		<field name="billid" required="true"/>
+		<field name="discount" type="decimal" />
+		<field name="amount" type="decimal" required="true"/>
+
+		<complex name="parent" ref="market_payment" jointype="many-to-one" required="false">
+			<key field="parentid" target="objid" />	
+		</complex>	
+	</element>
+</schema>

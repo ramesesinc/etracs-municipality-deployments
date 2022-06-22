@@ -1,0 +1,31 @@
+<schema>
+	<element tablename="market_batch_rental_rate">
+		<field name="objid" primary="true"  visible="true" />
+		<field name="state" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated" type="date"/>
+		<field name="particulars" />
+		<field name="fixed" />
+		<field name="rate" type="decimal"/>
+		<field name="ratetype" />
+
+		<!-- 0=once 1=repeating -->
+		<field name="frequency" type="integer"/>
+		
+		<field name="startdate"  type="date"/>
+		<field name="enddate"  type="date"/>
+		<field name="nextdate"  type="date"/>
+		<field name="interval"  type="integer"/>
+
+		<field name="orgunit"  />
+		<field name="includeunits"  />
+		<field name="units"  />
+
+		<complex name="center" ref="market_center" jointype="many-to-one" required="true" includefields="objid,name">
+			<key field="centerid" target="objid" />
+		</complex>
+			
+	</element>
+
+</schema>

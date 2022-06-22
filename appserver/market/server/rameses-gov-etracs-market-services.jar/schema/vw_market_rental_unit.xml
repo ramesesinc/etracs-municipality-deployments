@@ -1,0 +1,35 @@
+<schema>
+	<element tablename="vw_market_rental_unit">
+		<field name="objid" primary="true"/>
+		<field name="state"/>
+		<field name="centerid" indexed="true" searchable="true"/>
+		<field name="code" indexed="true" caption="Unit No" searchable="true"/>
+		<field name="unittype" />
+		<field name="currentacctid" />
+		<field name="indexno" type="integer"/>
+		<field name="areasqm" />
+		
+		<field name="center_objid" />
+		<field name="center_name" searchable="true"/>
+		
+		<field name="orgunit_objid" />
+		<field name="orgunit_name" searchable="true"/>
+		<field name="orgunit_leftindex" type="integer"/>
+		<field name="orgunit_rightindex" type="integer"/>
+		<field name="orgunit_fullpath" indexed="true" searchable="true" caption="Org Unit"/>
+		
+		<field name="rateid" />
+
+		<field name="account_acctno" searchable="true"/>
+		<field name="account_objid" />
+		<field name="account_acctname" searchable="true"/>
+
+		<field name="billgroupid" />
+
+		<complex name="currentrate" ref="market_rental_rate" jointype="many-to-one" required="false" 
+			includefields="rate,ratetype,effectivedate">
+			<key field="rateid" target="objid" />
+		</complex>
+
+	</element>
+</schema>
