@@ -18,7 +18,7 @@ services:
       - "8074:8070"
     volumes:
       - ../../_res/connections:/apps/server/services/apps/enterprise/connections/ext
-      - ../../_custom/datasources/market2ds:/apps/server/services/datasources/mainds
+      - ../../_custom/datasources/marketds:/apps/server/services/datasources/mainds
       - ../../_custom/report-files/market:/report-files
 
       - ./libs/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
