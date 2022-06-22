@@ -24,10 +24,10 @@ services:
       - ./libs/osiris2-report.jar:/apps/server/lib/osiris2-report.jar
       - ./libs/rameses-common2.jar:/apps/server/lib/rameses-common2.jar
 
-      - ./modules/rameses-workflow-services.jar:/apps/server/services/modules/rameses-workflow-services.jar
-      - ./modules/rameses-seti-services.jar:/apps/server/services/modules/rameses-seti-services.jar
-      - ./modules/jasper-report-services.jar:/apps/server/services/modules/jasper-report-services.jar
-      - ./modules/rameses-treasury-common-services.jar:/apps/server/services/modules/rameses-treasury-common-services.jar
-      - ./modules/rameses-rule-services.jar:/apps/server/services/modules/rameses-rule-services.jar
-      - ./modules/rameses-gov-etracs-market-services.jar:/enterprise/modules/rameses-gov-etracs-market-services.jar
-      - ./modules/rameses-gov-etracs-market-utility-services.jar:/enterprise/modules/rameses-gov-etracs-market-utility-services.jar
+      - ./server/rameses-workflow-services.jar:/apps/server/services/modules/rameses-workflow-services.jar
+      - ./server/rameses-seti-services.jar:/apps/server/services/modules/rameses-seti-services.jar
+      - ./server/jasper-report-services.jar:/apps/server/services/modules/jasper-report-services.jar
+      - ./server/rameses-treasury-common-services.jar:/apps/server/services/modules/rameses-treasury-common-services.jar
+      - ./server/rameses-rule-services.jar:/apps/server/services/modules/rameses-rule-services.jar
+      - ./server/rameses-gov-etracs-market-services.jar:/enterprise/modules/rameses-gov-etracs-market-services.jar
+      - ./server/rameses-gov-etracs-market-utility-services.jar:/enterprise/modules/rameses-gov-etracs-market-utility-services.jar
