@@ -3,7 +3,7 @@ version: "3"
 services:
 
   market-server:
-    image: "ramesesinc/enterprise-common-server:255.05.001"
+    image: ramesesinc/enterprise-common-server:255.05.001
     container_name: market-server
     restart: always
     logging: 
